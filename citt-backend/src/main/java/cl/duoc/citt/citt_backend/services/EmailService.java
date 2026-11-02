@@ -1,6 +1,7 @@
 package cl.duoc.citt.citt_backend.services;
 
-import lombok.RequiredArgsConstructor;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
@@ -18,9 +19,21 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
+
 @Slf4j
 public class EmailService {
+
+    @Value("${app.mail.provider:brevo}")
+    private String provider = "brevo";
+
+    @Value("${spring.mail.username:}")
+    private String gmailUsername;
+
+    private final JavaMailSender mailSender;
+
+    public EmailService(JavaMailSender mailSender) {
+        this.mailSender = mailSender;
+    }
 
     // Configuración de Brevo API — leída desde variables de entorno
     @Value("${brevo.sender-email:citt.ts01@gmail.com}")
@@ -31,7 +44,26 @@ public class EmailService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    void enviarCorreo(String destinatario, String asunto, String contenido) throws Exception {
+        switch (provider.trim().toLowerCase(java.util.Locale.ROOT)) {
+            case "brevo" -> enviarPorBrevo(destinatario, asunto, contenido);
+            case "gmail" -> {
+                if (gmailUsername == null || gmailUsername.isBlank()) {
+                    throw new IllegalStateException("Falta GMAIL_USERNAME");
+                }
+                var message = mailSender.createMimeMessage();
+                var helper = new MimeMessageHelper(message, "UTF-8");
+                helper.setFrom(gmailUsername, "Equipo CITT");
+                helper.setTo(destinatario);
+                helper.setSubject(asunto);
+                helper.setText(contenido.replace("\n", "<br>"), true);
+                mailSender.send(message);
+            }
+            default -> throw new IllegalArgumentException("Proveedor de correo inválido: use brevo o gmail");
+        }
+    }
     private void enviarPorBrevo(String destinatario, String asunto, String contenido) throws Exception {
+        if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("Falta BREVO_API_KEY");
         String url = "https://api.brevo.com/v3/smtp/email";
 
         HttpHeaders headers = new HttpHeaders();
@@ -83,7 +115,7 @@ public class EmailService {
         cuerpo.append("Saludos,\nEquipo CITT");
 
         try {
-            enviarPorBrevo(destinatario, "¡Tu Reserva ha sido Aprobada! - CITT", cuerpo.toString());
+            enviarCorreo(destinatario, "¡Tu Reserva ha sido Aprobada! - CITT", cuerpo.toString());
             log.info("Notificación de aprobación enviada con éxito a {}", destinatario);
         } catch (Exception e) {
             log.error("Fallo al despachar correo de aprobación a {}: {}", destinatario, e.getMessage());
@@ -102,7 +134,7 @@ public class EmailService {
         cuerpo.append("Saludos,\nEquipo CITT");
 
         try {
-            enviarPorBrevo(destinatario, "Actualización de tu Reserva - CITT", cuerpo.toString());
+            enviarCorreo(destinatario, "Actualización de tu Reserva - CITT", cuerpo.toString());
             log.info("Notificación de rechazo enviada con éxito a {}", destinatario);
         } catch (Exception e) {
             log.error("Fallo al despachar correo de rechazo a {}: {}", destinatario, e.getMessage());
@@ -115,7 +147,7 @@ public class EmailService {
                 "</b>\n\nPor favor, inicia sesión y cámbiala.\n\nCittSaludos,\nEquipo CITT";
 
         try {
-            enviarPorBrevo(destinatario, "Tu cuenta CITT ha sido creada - Contraseña Provisoria", cuerpo);
+            enviarCorreo(destinatario, "Tu cuenta CITT ha sido creada - Contraseña Provisoria", cuerpo);
             log.info("Correo enviado exitosamente a {}", destinatario);
         } catch (Exception e) {
             log.error("Error crítico al enviar correo a {}: {}", destinatario, e.getMessage());
@@ -130,7 +162,7 @@ public class EmailService {
                 "</b>\n\nPor favor, inicia sesión y cámbiala.\n\nCittSaludos,\nEquipo CITT";
 
         try {
-            enviarPorBrevo(destinatario, "Recuperación de Contraseña - CITT", cuerpo);
+            enviarCorreo(destinatario, "Recuperación de Contraseña - CITT", cuerpo);
             log.info("Correo de recuperación enviado exitosamente a {}", destinatario);
         } catch (Exception e) {
             log.error("Error al enviar recuperación a {}: {}", destinatario, e.getMessage());
@@ -153,7 +185,7 @@ public class EmailService {
         cuerpo.append("Saludos,\nEquipo CITT");
 
         try {
-            enviarPorBrevo(destinatario, "⚠️ Reserva ATRASADA - CITT", cuerpo.toString());
+            enviarCorreo(destinatario, "⚠️ Reserva ATRASADA - CITT", cuerpo.toString());
             log.info("Notificación de atraso enviada con éxito a {}", destinatario);
         } catch (Exception e) {
             log.error("Fallo al despachar correo de atraso a {}: {}", destinatario, e.getMessage());
