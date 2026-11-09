@@ -26,6 +26,12 @@ public class JwtFiltroAutenticacion extends OncePerRequestFilter {
     private final UserDetailsService userDetailsService;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return "POST".equals(request.getMethod())
+                && (request.getContextPath() + "/api/notebooks/reportes").equals(request.getRequestURI());
+    }
+
+    @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,
             @NonNull HttpServletResponse response,

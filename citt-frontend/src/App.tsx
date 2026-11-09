@@ -9,6 +9,7 @@ import { FormularioSolicitudPage } from "./pages/FormularioSolicitudPage";
 import { HistorialPage } from "./pages/HistorialPage";
 import { CalendarioPage } from "./pages/CalendarioPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { NotebooksPage } from "./pages/NotebooksPage";
 
 // Páginas de la rama articulos
 import { ArticulosPage } from "./pages/ArticulosPage";
@@ -34,6 +35,7 @@ function App() {
           <Route path="/historial-espacios" element={<HistorialPage />} />
           <Route path="/calendario" element={<CalendarioPage />} />
           <Route path="/articulos" element={<ArticulosPage />} />
+          <Route path="/notebooks" element={<NotebooksPage />} />
           <Route path="/solicitar-prestamo" element={<SolicitarPrestamoPage />} />
           <Route path="/solicitudes" element={<SolicitudesPage />} />
           

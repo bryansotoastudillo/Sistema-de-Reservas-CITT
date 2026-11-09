@@ -18,6 +18,7 @@ const RUTAS_NOMBRES: Record<string, string> = {
   "/historial-espacios": "Historial de Solicitudes",
   "/calendario": "Calendario",
   "/articulos": "Inventario",
+  "/notebooks": "Notebooks",
   "/solicitar-prestamo": "Solicitar Artículo",
   "/solicitudes": "Solicitudes",
   "/prestamos": "Préstamos",
@@ -37,6 +38,7 @@ const RUTAS_DESCRIPCIONES: Record<string, string> = {
   "/historial-espacios": "Registro completo de solicitudes finalizadas y artículos devueltos.",
   "/calendario": "Revisa los eventos programados y las reservas de laboratorios.",
   "/articulos": "Administra el inventario de artículos disponibles para préstamo.",
+  "/notebooks": "Revisa la batería, los programas y el estado de los notebooks vinculados al inventario.",
   "/solicitar-prestamo": "Consulta el catálogo y solicita equipos en préstamo.",
   "/solicitudes": "Administra las solicitudes de préstamo y entrega de artículos.",
   "/prestamos": "Revisa el estado de los préstamos activos.",
@@ -132,6 +134,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       ? [
           { name: "Usuarios", icon: Users, path: "/usuarios" },
           { name: "Inventario", icon: Box, path: "/articulos" },
+          ...(["DIRECTOR", "COORDINADOR"].includes(rolActivo)
+            ? [{ name: "Notebooks", icon: MonitorSmartphone, path: "/notebooks" }]
+            : []),
           {
             name: "Espacios",
             icon: MonitorSmartphone,
