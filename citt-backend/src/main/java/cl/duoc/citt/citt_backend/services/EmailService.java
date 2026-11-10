@@ -1,11 +1,13 @@
 package cl.duoc.citt.citt_backend.services;
 
+import cl.duoc.citt.citt_backend.dto.SolicitudResponseDTO;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -45,8 +47,12 @@ public class EmailService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     void enviarCorreo(String destinatario, String asunto, String contenido) throws Exception {
+        enviarCorreoHtml(destinatario, asunto, contenido.replace("\n", "<br>"));
+    }
+
+    void enviarCorreoHtml(String destinatario, String asunto, String html) throws Exception {
         switch (provider.trim().toLowerCase(java.util.Locale.ROOT)) {
-            case "brevo" -> enviarPorBrevo(destinatario, asunto, contenido);
+            case "brevo" -> enviarPorBrevo(destinatario, asunto, html);
             case "gmail" -> {
                 if (gmailUsername == null || gmailUsername.isBlank()) {
                     throw new IllegalStateException("Falta GMAIL_USERNAME");
@@ -56,13 +62,13 @@ public class EmailService {
                 helper.setFrom(gmailUsername, "Equipo CITT");
                 helper.setTo(destinatario);
                 helper.setSubject(asunto);
-                helper.setText(contenido.replace("\n", "<br>"), true);
+                helper.setText(html, true);
                 mailSender.send(message);
             }
             default -> throw new IllegalArgumentException("Proveedor de correo inválido: use brevo o gmail");
         }
     }
-    private void enviarPorBrevo(String destinatario, String asunto, String contenido) throws Exception {
+    private void enviarPorBrevo(String destinatario, String asunto, String html) throws Exception {
         if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("Falta BREVO_API_KEY");
         String url = "https://api.brevo.com/v3/smtp/email";
 
@@ -83,42 +89,26 @@ public class EmailService {
         body.put("to", List.of(to));
 
         body.put("subject", asunto);
-        // Brevo usa HTML, así que convertimos los saltos de línea de Java a saltos de HTML
-        body.put("htmlContent", contenido.replace("\n", "<br>"));
+        body.put("htmlContent", html);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
         restTemplate.exchange(url, HttpMethod.POST, request, String.class);
     }
 
-    // correo de aprobacion a una reserva
+    record SolicitudAprobada(SolicitudResponseDTO solicitud) {}
+
     @Async
-    public void enviarCorreoAprobacion(String destinatario, Long idSolicitud, String nombreEspacio, java.util.List<String> articulos, LocalDate fecha, LocalTime horaInicio) {
-        StringBuilder cuerpo = new StringBuilder();
-        cuerpo.append("Estimado/a Usuario,\n\n");
-        cuerpo.append("Nos alegra informarte que tu solicitud de reserva ha sido APROBADA.\n\n");
-        cuerpo.append("Detalles de la reserva:\n");
-        cuerpo.append("- Fecha: ").append(fecha).append("\n");
-        cuerpo.append("- Hora de inicio: ").append(horaInicio).append("\n");
-
-        if (nombreEspacio != null && !nombreEspacio.trim().isEmpty()) {
-            cuerpo.append("- Espacio asignado: ").append(nombreEspacio).append("\n");
-        }
-
-        if (articulos != null && !articulos.isEmpty()) {
-            cuerpo.append("- Artículos solicitados:\n");
-            for (String art : articulos) {
-                cuerpo.append("  * ").append(art).append("\n");
-            }
-        }
-
-        cuerpo.append("\nRecuerda presentarte a la hora indicada para hacer uso de tu reserva. Si solicitaste artículos, por favor acércate a retirarlos en el mesón.\n\n");
-        cuerpo.append("Saludos,\nEquipo CITT");
-
+    @TransactionalEventListener
+    public void enviarCorreoAprobacion(SolicitudAprobada evento) {
+        SolicitudResponseDTO solicitud = evento.solicitud();
+        String destinatario = solicitud.getEmailUsuario();
         try {
-            enviarCorreo(destinatario, "¡Tu Reserva ha sido Aprobada! - CITT", cuerpo.toString());
-            log.info("Notificación de aprobación enviada con éxito a {}", destinatario);
+            CorreoSolicitud correo = CorreoSolicitud.aprobada(solicitud);
+            enviarCorreoHtml(destinatario, correo.asunto(), correo.html());
+            log.info("Confirmación de solicitud #{} enviada a {}", solicitud.getIdSolicitud(), destinatario);
         } catch (Exception e) {
-            log.error("Fallo al despachar correo de aprobación a {}: {}", destinatario, e.getMessage());
+            log.error("Fallo al enviar confirmación de solicitud #{} a {}: {}",
+                    solicitud.getIdSolicitud(), destinatario, e.getMessage());
         }
     }
 

@@ -250,14 +250,7 @@ public class SolicitudServiceImpl implements SolicitudService {
                     guardada.getMotivoRechazo()
             );
         } else if (nombreEstado.equals("APROBADA")) {
-            emailService.enviarCorreoAprobacion(
-                    dtoResponse.getEmailUsuario(),
-                    dtoResponse.getIdSolicitud(),
-                    dtoResponse.getNombreEspacio(),
-                    dtoResponse.getNombresArticulos(),
-                    dtoResponse.getFecha(),
-                    dtoResponse.getHoraInicio()
-            );
+            eventos.publishEvent(new EmailService.SolicitudAprobada(dtoResponse));
         }
 
         return dtoResponse;

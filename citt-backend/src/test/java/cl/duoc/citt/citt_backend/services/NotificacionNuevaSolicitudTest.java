@@ -33,7 +33,7 @@ class NotificacionNuevaSolicitudTest {
         when(usuarios.findEmailsDeCoordinadoresYDirectores())
                 .thenReturn(List.of("coordinador@example.com", "director@example.com"));
         doThrow(new MailSendException("Fallo simulado"))
-                .when(correo).enviarCorreo(eq("coordinador@example.com"), anyString(), anyString());
+                .when(correo).enviarCorreoHtml(eq("coordinador@example.com"), anyString(), anyString());
 
         SolicitudResponseDTO solicitud = SolicitudResponseDTO.builder()
                 .idSolicitud(12L)
@@ -48,13 +48,15 @@ class NotificacionNuevaSolicitudTest {
         new NotificacionNuevaSolicitud(usuarios, correo)
                 .notificar(new NotificacionNuevaSolicitud.SolicitudCreada(solicitud));
 
-        verify(correo).enviarCorreo(eq("coordinador@example.com"), anyString(), anyString());
-        verify(correo).enviarCorreo(eq("director@example.com"),
+        verify(correo).enviarCorreoHtml(eq("coordinador@example.com"), anyString(), anyString());
+        verify(correo).enviarCorreoHtml(eq("director@example.com"),
                 eq("Nueva solicitud #12 pendiente de revisión - CITT"),
                 argThat(cuerpo -> cuerpo.contains("solicitante@example.com")
                         && cuerpo.contains("10:00 a 11:00")
-                        && cuerpo.contains("Espacio: Sala &lt;A&gt;") == (espacio != null)
+                        && cuerpo.contains("Sala &lt;A&gt;") == (espacio != null)
                         && cuerpo.contains("2x Notebook") == (articulo != null)
-                        && cuerpo.contains("Destino externo: Taller &lt;B&gt;") == (destinoExterno != null)));
+                        && cuerpo.contains("Taller &lt;B&gt;") == (destinoExterno != null)
+                        && cuerpo.contains("Revisar en Reservas CITT")
+                        && !cuerpo.contains("calendar.google.com")));
     }
 }
