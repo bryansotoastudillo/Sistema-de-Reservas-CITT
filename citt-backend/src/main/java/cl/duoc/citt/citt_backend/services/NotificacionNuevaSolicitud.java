@@ -22,11 +22,11 @@ public class NotificacionNuevaSolicitud {
     @TransactionalEventListener
     public void notificar(SolicitudCreada evento) {
         SolicitudResponseDTO solicitud = evento.solicitud();
-        CorreoSolicitud correo = CorreoSolicitud.pendiente(solicitud);
+        CorreoCitt correo = CorreoSolicitud.pendiente(solicitud);
 
         for (String destinatario : usuarioRepository.findEmailsDeCoordinadoresYDirectores()) {
             try {
-                emailService.enviarCorreoHtml(destinatario, correo.asunto(), correo.html());
+                emailService.enviarCorreo(destinatario, correo);
                 log.info("Aviso de nueva solicitud #{} enviado a {}", solicitud.getIdSolicitud(), destinatario);
             } catch (Exception e) {
                 log.warn("Fallo al enviar aviso de solicitud #{} a {}: {}",

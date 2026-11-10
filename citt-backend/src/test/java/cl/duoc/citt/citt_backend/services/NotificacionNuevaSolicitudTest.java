@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -33,7 +33,7 @@ class NotificacionNuevaSolicitudTest {
         when(usuarios.findEmailsDeCoordinadoresYDirectores())
                 .thenReturn(List.of("coordinador@example.com", "director@example.com"));
         doThrow(new MailSendException("Fallo simulado"))
-                .when(correo).enviarCorreoHtml(eq("coordinador@example.com"), anyString(), anyString());
+                .when(correo).enviarCorreo(eq("coordinador@example.com"), any(CorreoCitt.class));
 
         SolicitudResponseDTO solicitud = SolicitudResponseDTO.builder()
                 .idSolicitud(12L)
@@ -48,15 +48,17 @@ class NotificacionNuevaSolicitudTest {
         new NotificacionNuevaSolicitud(usuarios, correo)
                 .notificar(new NotificacionNuevaSolicitud.SolicitudCreada(solicitud));
 
-        verify(correo).enviarCorreoHtml(eq("coordinador@example.com"), anyString(), anyString());
-        verify(correo).enviarCorreoHtml(eq("director@example.com"),
-                eq("Nueva solicitud #12 pendiente de revisión - CITT"),
-                argThat(cuerpo -> cuerpo.contains("solicitante@example.com")
-                        && cuerpo.contains("10:00 a 11:00")
-                        && cuerpo.contains("Sala &lt;A&gt;") == (espacio != null)
-                        && cuerpo.contains("2x Notebook") == (articulo != null)
-                        && cuerpo.contains("Taller &lt;B&gt;") == (destinoExterno != null)
-                        && cuerpo.contains("Revisar en Reservas CITT")
-                        && !cuerpo.contains("calendar.google.com")));
+        verify(correo).enviarCorreo(eq("coordinador@example.com"), any(CorreoCitt.class));
+        verify(correo).enviarCorreo(eq("director@example.com"), argThat(enviado -> {
+            String html = enviado.html();
+            return enviado.asunto().equals("Nueva solicitud #12 pendiente de revisión - CITT")
+                    && html.contains("solicitante@example.com")
+                    && html.contains("10:00 a 11:00")
+                    && html.contains("Sala &lt;A&gt;") == (espacio != null)
+                    && html.contains("2x Notebook") == (articulo != null)
+                    && html.contains("Taller &lt;B&gt;") == (destinoExterno != null)
+                    && html.contains("Revisar en Reservas CITT")
+                    && !html.contains("calendar.google.com");
+        }));
     }
 }

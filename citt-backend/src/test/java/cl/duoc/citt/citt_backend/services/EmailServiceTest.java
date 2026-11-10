@@ -2,6 +2,7 @@ package cl.duoc.citt.citt_backend.services;
 
 import cl.duoc.citt.citt_backend.dto.SolicitudResponseDTO;
 import jakarta.mail.Session;
+import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -31,30 +33,32 @@ class EmailServiceTest {
         ReflectionTestUtils.setField(service, "apiKey", "test-key");
         ReflectionTestUtils.setField(service, "remitente", "sender@example.com");
         var server = MockRestServiceServer.bindTo((RestTemplate) ReflectionTestUtils.getField(service, "restTemplate")).build();
+        CorreoCitt correo = correoDePrueba();
         server.expect(requestTo("https://api.brevo.com/v3/smtp/email"))
             .andExpect(header("api-key", "test-key"))
             .andExpect(jsonPath("$.to[0].email").value("to@example.com"))
-            .andExpect(jsonPath("$.htmlContent").value("Hola<br>CITT"))
+            .andExpect(jsonPath("$.sender.name").value("CITT Duoc UC Valparaíso"))
+            .andExpect(jsonPath("$.htmlContent").value(correo.html()))
             .andRespond(withSuccess());
-        service.enviarCorreo("to@example.com", "Prueba", "Hola\nCITT");
+        service.enviarCorreo("to@example.com", correo);
         server.verify();
         verifyNoInteractions(sender);
     }
     @Test void gmailEnviaHtmlConRemitenteConfigurado() throws Exception {
-        ReflectionTestUtils.setField(service, "provider", "gmail");
-        ReflectionTestUtils.setField(service, "gmailUsername", "sender@example.com");
-        var message = new MimeMessage(Session.getInstance(new Properties()));
-        when(sender.createMimeMessage()).thenReturn(message);
-        service.enviarCorreo("to@example.com", "Prueba", "Hola\nCITT");
+        var message = prepararGmail();
+        var correo = correoDePrueba();
+        service.enviarCorreo("to@example.com", correo);
         verify(sender).send(message);
         assertEquals("Prueba", message.getSubject());
         assertEquals("to@example.com", message.getAllRecipients()[0].toString());
-        assertTrue(message.getFrom()[0].toString().contains("sender@example.com"));
-        assertEquals("Hola<br>CITT", message.getContent());
+        var remitente = (InternetAddress) message.getFrom()[0];
+        assertEquals("sender@example.com", remitente.getAddress());
+        assertEquals("CITT Duoc UC Valparaíso", remitente.getPersonal());
+        assertEquals(correo.html(), message.getContent());
     }
     @Test void proveedorInvalidoNoEnvia() {
         ReflectionTestUtils.setField(service, "provider", "otro");
-        assertThrows(IllegalArgumentException.class, () -> service.enviarCorreo("to@example.com", "Prueba", "Hola"));
+        assertThrows(IllegalArgumentException.class, () -> service.enviarCorreo("to@example.com", correoDePrueba()));
         verifyNoInteractions(sender);
     }
 
@@ -64,10 +68,7 @@ class EmailServiceTest {
             "2026-07-15, 20260715T140000Z%2F20260715T153000Z"
     })
     void aprobacionIncluyeCalendarioConHoraDeChile(LocalDate fecha, String fechasUtc) throws Exception {
-        ReflectionTestUtils.setField(service, "provider", "gmail");
-        ReflectionTestUtils.setField(service, "gmailUsername", "sender@example.com");
-        var message = new MimeMessage(Session.getInstance(new Properties()));
-        when(sender.createMimeMessage()).thenReturn(message);
+        var message = prepararGmail();
         var solicitud = SolicitudResponseDTO.builder()
                 .idSolicitud(42L)
                 .emailUsuario("to@example.com")
@@ -94,7 +95,55 @@ class EmailServiceTest {
     }
     @Test void gmailSinUsuarioNoEnvia() {
         ReflectionTestUtils.setField(service, "provider", "gmail");
-        assertThrows(IllegalStateException.class, () -> service.enviarCorreo("to@example.com", "Prueba", "Hola"));
+        assertThrows(IllegalStateException.class, () -> service.enviarCorreo("to@example.com", correoDePrueba()));
         verifyNoInteractions(sender);
+    }
+
+    @Test void rechazoMuestraMotivoSinInterpretarloComoHtml() throws Exception {
+        var message = prepararGmail();
+        service.enviarCorreoRechazo("to@example.com", 42L, "<Sala ocupada>");
+        verificarCorreoInstitucional(message, "#42", "Motivo", "&lt;Sala ocupada&gt;");
+    }
+
+    @Test void atrasoMuestraHoraLimite() throws Exception {
+        var message = prepararGmail();
+        service.enviarCorreoAtraso("to@example.com", LocalDate.of(2026, 11, 10), LocalTime.of(17, 30));
+        verificarCorreoInstitucional(message, "Devolución pendiente", "10 de noviembre de 2026", "17:30");
+    }
+
+    @Test void cuentaNuevaMuestraLaContraseñaProvisoriaComoTexto() throws Exception {
+        var message = prepararGmail();
+        service.enviarPasswordProvisoria("to@example.com", "Clave<&>");
+        verificarCorreoInstitucional(message, "Contraseña provisoria", "Clave&lt;&amp;&gt;", "primer acceso");
+    }
+
+    @Test void recuperacionDistingueElCodigoDeLaNuevaContraseña() throws Exception {
+        var message = prepararGmail();
+        service.enviarPasswordRecuperacion("to@example.com", "a1b2c3d4");
+        verificarCorreoInstitucional(message, "Código de recuperación", "a1b2c3d4", "elige una nueva contraseña");
+    }
+
+    private MimeMessage prepararGmail() {
+        ReflectionTestUtils.setField(service, "provider", "gmail");
+        ReflectionTestUtils.setField(service, "gmailUsername", "sender@example.com");
+        var message = new MimeMessage(Session.getInstance(new Properties()));
+        when(sender.createMimeMessage()).thenReturn(message);
+        return message;
+    }
+
+    private void verificarCorreoInstitucional(MimeMessage message, String... fragmentos) throws Exception {
+        verify(sender).send(message);
+        String html = (String) message.getContent();
+        assertTrue(html.contains("Equipo CITT · Duoc UC Valparaíso"));
+        assertTrue(html.contains("href=\"https://cittvalparaiso.cl\""));
+        for (String fragmento : fragmentos) {
+            assertTrue(html.contains(fragmento));
+        }
+        assertFalse(html.contains("calendar.google.com"));
+    }
+
+    private CorreoCitt correoDePrueba() {
+        return CorreoCitt.crear("Prueba", CorreoCitt.Estado.INFORMATIVO,
+                "Prueba de correo", "Hola CITT", Map.of(), "Abrir Reservas CITT");
     }
 }
