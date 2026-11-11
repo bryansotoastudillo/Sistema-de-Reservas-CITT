@@ -14,7 +14,8 @@ import cl.duoc.citt.citt_backend.repositories.SolicitudRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -23,6 +24,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class EspacioServiceImpl implements EspacioService {
+
+    private static final ZoneId ZONA_CITT = ZoneId.of("America/Santiago");
 
     private final EspacioRepository repository;
     private final EstadoEspacioRepository estadoRepository;
@@ -66,7 +69,8 @@ public class EspacioServiceImpl implements EspacioService {
             lista = repository.findAll();
         }
 
-        return lista.stream().map(this::mapToDTO).collect(Collectors.toList());
+        List<Solicitud> ocupaciones = ocupacionesActuales();
+        return lista.stream().map(espacio -> mapToDTO(espacio, ocupaciones)).toList();
     }
 
     @Override
@@ -116,22 +120,18 @@ public class EspacioServiceImpl implements EspacioService {
     }
 
     private EspacioResponseDTO mapToDTO(Espacio espacio) {
-        LocalDate hoy = LocalDate.now();
-        java.time.LocalTime ahora = java.time.LocalTime.now();
-        List<Solicitud> reservasHoy = solicitudRepository.findByFecha(hoy);
+        return mapToDTO(espacio, ocupacionesActuales());
+    }
 
-        boolean enUso = false;
-        for (Solicitud s : reservasHoy) {
-            String estado = s.getEstadoSolicitud().getNombre().toUpperCase();
-            if (estado.equals("EN PROCESO") || 
-               (estado.equals("APROBADA") && !ahora.isBefore(s.getHoraInicio()) && ahora.isBefore(s.getHoraFin()))) {
-                if (Boolean.TRUE.equals(s.getExclusividad()) ||
-                        (s.getEspacio() != null && s.getEspacio().getId().equals(espacio.getId()))) {
-                    enUso = true;
-                    break;
-                }
-            }
-        }
+    private List<Solicitud> ocupacionesActuales() {
+        ZonedDateTime ahora = ZonedDateTime.now(ZONA_CITT);
+        return solicitudRepository.findOcupacionesActuales(ahora.toLocalDate(), ahora.toLocalTime());
+    }
+
+    private EspacioResponseDTO mapToDTO(Espacio espacio, List<Solicitud> ocupaciones) {
+        boolean enUso = ocupaciones.stream().anyMatch(solicitud ->
+                Boolean.TRUE.equals(solicitud.getExclusividad())
+                        || solicitud.getEspacio().getId().equals(espacio.getId()));
 
         return EspacioResponseDTO.builder()
                 .id(espacio.getId())
