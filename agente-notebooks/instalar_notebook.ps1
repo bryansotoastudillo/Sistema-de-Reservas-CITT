@@ -2,7 +2,8 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$Paquete = $PSScriptRoot,
-    [string]$PythonZip
+    [string]$PythonZip,
+    [switch]$HabilitarUbicacion
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,7 +19,7 @@ if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') {
 }
 
 $origen = (Resolve-Path -LiteralPath $Paquete).Path
-$archivos = @('agente.py', 'vigilancia.py', 'uso_programas.py', 'configuracion.json')
+$archivos = @('agente.py', 'vigilancia.py', 'uso_programas.py', 'ubicacion.ps1', 'configuracion.json')
 foreach ($archivo in $archivos) {
     if (-not (Test-Path -LiteralPath (Join-Path $origen $archivo) -PathType Leaf)) {
         throw "Falta $archivo. Usa el paquete individual generado por agregar_notebook.py."
@@ -27,6 +28,9 @@ foreach ($archivo in $archivos) {
 $config = Get-Content -LiteralPath (Join-Path $origen 'configuracion.json') -Raw | ConvertFrom-Json
 $servidor = $config.servidor -as [uri]
 $esCitt = $config.ruta_reportes -ceq '/api/notebooks/reportes'
+if ($HabilitarUbicacion -and -not $esCitt) {
+    throw 'La ubicacion automatica requiere una credencial del panel CITT.'
+}
 $usaCaLocal = $config.certificado_ca -ceq 'ca.pem'
 if (-not $servidor -or -not $servidor.IsAbsoluteUri -or $servidor.Scheme -ne 'https' -or
     $servidor.IsLoopback -or $servidor.UserInfo -or $servidor.Query -or $servidor.Fragment -or
@@ -105,6 +109,9 @@ try {
         if ($configAnterior.identificador -ne $config.identificador -or $configAnterior.servidor -ne $config.servidor) {
             throw 'Este notebook ya esta asignado a otro paquete o servidor.'
         }
+        if ($esCitt -and -not $PSBoundParameters.ContainsKey('HabilitarUbicacion')) {
+            $HabilitarUbicacion = Test-Path -LiteralPath (Join-Path $anterior 'ubicacion-habilitada') -PathType Leaf
+        }
     }
 
     $version = Join-Path $raiz ('agente-' + [guid]::NewGuid().ToString('N'))
@@ -112,6 +119,9 @@ try {
     New-Item -ItemType Directory -Path $version, $runtime | Out-Null
     foreach ($archivo in $archivos) {
         Copy-Item -LiteralPath (Join-Path $origen $archivo) -Destination $version
+    }
+    if ($HabilitarUbicacion) {
+        New-Item -ItemType File -Path (Join-Path $version 'ubicacion-habilitada') | Out-Null
     }
     $descargadoAqui = -not $PythonZip
     if ($descargadoAqui) {

@@ -27,8 +27,10 @@ public class JwtFiltroAutenticacion extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+        String base = request.getContextPath() + "/api/notebooks/";
         return "POST".equals(request.getMethod())
-                && (request.getContextPath() + "/api/notebooks/reportes").equals(request.getRequestURI());
+                && ((base + "reportes").equals(request.getRequestURI())
+                    || (base + "ubicacion").equals(request.getRequestURI()));
     }
 
     @Override

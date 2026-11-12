@@ -17,6 +17,13 @@ interface Notebook {
   estadoInventario: string;
   recibido: string | null;
   observado: string | null;
+  prestamoExterno?: boolean;
+  ubicacion?: {
+    latitud: number;
+    longitud: number;
+    precisionMetros: number;
+    observada: string;
+  } | null;
   reporte: {
     equipo: string;
     estado: string;
@@ -30,6 +37,7 @@ interface Notebook {
 const campo = "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800";
 const accion = "rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50";
 const fecha = new Intl.DateTimeFormat("es-CL", { dateStyle: "short", timeStyle: "short" });
+const metros = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
 const energia: Record<string, string> = {
   encendido: "Encendido",
   suspendido: "Suspendido",
@@ -167,11 +175,11 @@ function VistaNotebooks() {
         {!!equipos.length && <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-600">
-              <tr>{["Equipo", "Inventario", "Batería", "Reporte", "Programas"].map(titulo =>
+              <tr>{["Equipo", "Inventario", "Batería", "Reporte", "Ubicación", "Programas"].map(titulo =>
                 <th key={titulo} scope="col" className="px-5 py-3">{titulo}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {equipos.map(({ idArticulo, articulo, codigoDuoc, estadoInventario, observado, reporte }) => {
+              {equipos.map(({ idArticulo, articulo, codigoDuoc, estadoInventario, observado, reporte, prestamoExterno, ubicacion }) => {
                 const numeroCitt = articulo.trim().match(/\bCITT(?:-LAP|\s+)(\d{1,3})$/i)?.[1];
                 const nombreEquipo = numeroCitt ? "CITT-LAP" + String(Number(numeroCitt)).padStart(2, "0") : "Sin número asignado";
                 const lectura = observado ? new Date(observado) : null;
@@ -204,6 +212,17 @@ function VistaNotebooks() {
                           <li key={i}>{eventosEnergia[evento.tipo]} · {fecha.format(new Date(evento.fecha))}</li>)}
                       </ul>
                     </details>}
+                  </td>
+                  <td className="px-5 py-4 text-sm">
+                    {prestamoExterno ? ubicacion ? <>
+                      <a className="font-semibold text-blue-800 underline"
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${ubicacion.latitud},${ubicacion.longitud}`)}`}
+                        target="_blank" rel="noopener noreferrer">Última ubicación en Google Maps</a>
+                      <span className="mt-1 block text-xs text-slate-600">
+                        {fecha.format(new Date(ubicacion.observada))} · ±{metros.format(ubicacion.precisionMetros)} m
+                      </span>
+                    </> : <span className="text-slate-600">Sin ubicación recibida</span>
+                      : <span className="text-slate-600">Sin préstamo externo activo</span>}
                   </td>
                   <td className="px-5 py-4">{reporte ? <details>
                     <summary className="cursor-pointer text-blue-800">{reporte.programas.length} registrados</summary>

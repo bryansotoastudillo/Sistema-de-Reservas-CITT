@@ -32,7 +32,7 @@ public class SecurityConfig {
                         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                         .csrf(AbstractHttpConfigurer::disable)
                         .authorizeHttpRequests(auth -> auth
-                                .requestMatchers(HttpMethod.POST, "/api/notebooks/reportes").permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/notebooks/reportes", "/api/notebooks/ubicacion").permitAll()
                                 .requestMatchers(
                                         "/api/auth/login",
                                         "/api/auth/auto-registro",

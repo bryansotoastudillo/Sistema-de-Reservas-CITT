@@ -1,6 +1,7 @@
 package cl.duoc.citt.citt_backend.controllers;
 
 import cl.duoc.citt.citt_backend.model.Articulo;
+import cl.duoc.citt.citt_backend.model.EstadoArticulo;
 import cl.duoc.citt.citt_backend.model.NotebookMonitoreado;
 import cl.duoc.citt.citt_backend.repositories.NotebookMonitoreadoRepository;
 import cl.duoc.citt.citt_backend.security.JwtFiltroAutenticacion;
@@ -8,6 +9,7 @@ import cl.duoc.citt.citt_backend.security.JwtUtilidades;
 import cl.duoc.citt.citt_backend.security.SecurityConfig;
 import cl.duoc.citt.citt_backend.services.NotebookMonitoreadoService;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -33,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, JwtFiltroAutenticacion.class, NotebookMonitoreadoService.class})
 class NotebookMonitoreadoControllerTest {
     private static final String REPORTES = "/api/notebooks/reportes";
+    private static final String UBICACION = "/api/notebooks/ubicacion";
     private static final String TOKEN = "Bearer " + "a".repeat(43);
     @Autowired MockMvc mvc;
     @MockitoBean NotebookMonitoreadoRepository repositorio;
@@ -79,6 +83,62 @@ class NotebookMonitoreadoControllerTest {
     }
 
     @Test
+    void ubicaSoloElPrestamoExternoVigente() throws Exception {
+        var notebook = new NotebookMonitoreado();
+        var articulo = new Articulo();
+        articulo.setIdArticulo(30L);
+        var estado = new EstadoArticulo();
+        estado.setNombreEstado("PRESTADO");
+        articulo.setEstadoArticulo(estado);
+        notebook.setArticulo(articulo);
+        var prestamo = mock(NotebookMonitoreadoRepository.PrestamoExterno.class);
+        when(prestamo.getArticuloId()).thenReturn(30L);
+        when(prestamo.getSolicitudId()).thenReturn(70L);
+        when(repositorio.findByHashToken(anyString())).thenReturn(Optional.of(notebook));
+        when(repositorio.buscarPrestamoExterno(30L)).thenReturn(Optional.of(70L));
+        when(repositorio.listarConArticulo()).thenReturn(List.of(notebook));
+        when(repositorio.listarPrestamosExternos()).thenReturn(List.of(prestamo));
+
+        var fecha = Instant.now().minusSeconds(10);
+        mvc.perform(post(REPORTES).header("Authorization", TOKEN).contentType(MediaType.APPLICATION_JSON)
+                        .content(reporte(fecha, 78)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.prestamoExterno").value(70));
+        mvc.perform(post(UBICACION).contentType(MediaType.APPLICATION_JSON).content(ubicacion(70, fecha, 30)))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post(UBICACION).header("Authorization", TOKEN).contentType(MediaType.APPLICATION_JSON)
+                        .content(ubicacion(69, fecha, 30)))
+                .andExpect(status().isConflict());
+        mvc.perform(post(UBICACION).header("Authorization", TOKEN).contentType(MediaType.APPLICATION_JSON)
+                        .content(ubicacion(70, fecha, 100)))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post(UBICACION).header("Authorization", TOKEN).contentType(MediaType.APPLICATION_JSON)
+                        .content(ubicacion(70, fecha, 30)))
+                .andExpect(status().isNoContent());
+        mvc.perform(post(REPORTES).header("Authorization", TOKEN).contentType(MediaType.APPLICATION_JSON)
+                        .content(reporte(fecha.plusSeconds(1), 77)))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/notebooks").with(user("direccion").roles("DIRECTOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].ubicacion.latitud").value(30.0))
+                .andExpect(jsonPath("$[0].reporte.ubicacion").doesNotExist());
+
+        when(repositorio.buscarPrestamoExterno(30L)).thenReturn(Optional.empty());
+        when(repositorio.listarPrestamosExternos()).thenReturn(List.of());
+        mvc.perform(get("/api/notebooks").with(user("direccion").roles("DIRECTOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].prestamoExterno").value(false))
+                .andExpect(jsonPath("$[0].ubicacion").doesNotExist())
+                .andExpect(jsonPath("$[0].reporte.ubicacion").doesNotExist());
+        mvc.perform(post(UBICACION).header("Authorization", TOKEN).contentType(MediaType.APPLICATION_JSON)
+                        .content(ubicacion(70, fecha.plusSeconds(2), 30)))
+                .andExpect(status().isConflict());
+        mvc.perform(post(REPORTES).header("Authorization", TOKEN).contentType(MediaType.APPLICATION_JSON)
+                        .content(reporte(fecha.plusSeconds(3), 76)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.prestamoExterno").doesNotExist());
+        assertThat(notebook.getReporte().has("ubicacion")).isFalse();
+    }
+
+    @Test
     void soloCoordinacionYDireccionPuedenConsultar() throws Exception {
         mvc.perform(get("/api/notebooks").with(user("alumno").roles("ALUMNO")))
                 .andExpect(status().isForbidden());
@@ -110,5 +170,11 @@ class NotebookMonitoreadoControllerTest {
                 "programas":[{"nombre":"Editor"}],
                 "eventos_energia":[{"tipo":"suspension","fecha":"%s"}]}
                 """.formatted(fecha, bateria, fecha.minusSeconds(60));
+    }
+
+    private String ubicacion(int prestamo, Instant fecha, int latitud) {
+        return """
+                {"prestamoExterno":%d,"observada":"%s","latitud":%d,"longitud":15,"precisionMetros":30}
+                """.formatted(prestamo, fecha, latitud);
     }
 }

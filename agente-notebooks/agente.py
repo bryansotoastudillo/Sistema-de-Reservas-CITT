@@ -10,7 +10,9 @@ import socket
 import time
 import winreg
 import ssl
+import subprocess
 import uuid
+import os
 from urllib.parse import urlparse
 from vigilancia import consultar_eventos_energia, consultar_wifi, consultar_usuarios
 from uso_programas import INTERVALO_MUESTRA, RegistroUso
@@ -121,7 +123,39 @@ def generar_reporte(destino, instalados, errores, registro):
     return reporte
 
 
-def enviar(reporte):
+def peticion_json(config, ruta, datos):
+    peticion = Request(config["servidor"].rstrip("/") + ruta,
+                       data=json.dumps(datos).encode("utf-8"),
+                       headers={"Content-Type": "application/json"},
+                       method="POST")
+    peticion.add_unredirected_header("Authorization", "Bearer " + config["clave"])
+    return peticion
+
+
+def enviar_ubicacion(config, contexto, respuesta):
+    try:
+        permiso = json.loads(respuesta.read(4096))
+        prestamo = permiso.get("prestamoExterno") if isinstance(permiso, dict) else None
+        if type(prestamo) is not int or prestamo <= 0:
+            return
+        powershell = Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+        resultado = subprocess.run(
+            [str(powershell), "-NoProfile", "-NonInteractive", "-File",
+             str(Path(__file__).resolve().with_name("ubicacion.ps1"))],
+            capture_output=True, timeout=25, creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+        if resultado.returncode != 0 or not resultado.stdout.strip():
+            return
+        ubicacion = json.loads(resultado.stdout)
+        ubicacion["prestamoExterno"] = prestamo
+        peticion = peticion_json(config, "/api/notebooks/ubicacion", ubicacion)
+        with urlopen(peticion, timeout=10, context=contexto):
+            pass
+    except (OSError, ValueError, TypeError, KeyError, subprocess.TimeoutExpired):
+        print("No se pudo actualizar la ubicacion del prestamo.")
+
+
+def enviar(reporte, consultar_posicion=False):
     configuracion = Path(__file__).resolve().parent / "configuracion.json"
     if not configuracion.exists():
         print("Reporte local guardado. Inicia servidor.py para habilitar el envio al panel.")
@@ -142,14 +176,13 @@ def enviar(reporte):
             cuerpo["programas"] = [{clave: valor for clave, valor in programa.items()
                                     if clave in ("nombre", "version", "editor")}
                                    for programa in reporte["programas"]]
-        peticion = Request(config["servidor"].rstrip("/") + ruta_reportes,
-                           data=json.dumps(cuerpo).encode("utf-8"),
-                           headers={"Content-Type": "application/json"},
-                           method="POST")
-        peticion.add_unredirected_header("Authorization", "Bearer " + config["clave"])
+        peticion = peticion_json(config, ruta_reportes, cuerpo)
         with urlopen(peticion, timeout=10, context=contexto) as respuesta:
             if respuesta.status != 200:
                 raise ValueError("Respuesta inesperada")
+            if (consultar_posicion and url.scheme == "https" and ruta_reportes == "/api/notebooks/reportes"
+                    and (configuracion.parent / "ubicacion-habilitada").is_file()):
+                enviar_ubicacion(config, contexto, respuesta)
         print("Reporte enviado al panel.")
         return True
     except (OSError, URLError, ValueError, KeyError):
@@ -159,9 +192,10 @@ def enviar(reporte):
 
 def guardar_y_enviar(reporte, pendientes):
     pendientes.mkdir(exist_ok=True)
-    (pendientes / (str(time.time_ns()) + ".json")).write_text(json.dumps(reporte, ensure_ascii=False), encoding="utf-8")
+    actual = pendientes / (str(time.time_ns()) + ".json")
+    actual.write_text(json.dumps(reporte, ensure_ascii=False), encoding="utf-8")
     for archivo in sorted(pendientes.glob("*.json")):
-        if not enviar(json.loads(archivo.read_text(encoding="utf-8"))):
+        if not enviar(json.loads(archivo.read_text(encoding="utf-8")), consultar_posicion=archivo == actual):
             break
         archivo.unlink()
 

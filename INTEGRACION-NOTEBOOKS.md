@@ -22,6 +22,18 @@ Abre PowerShell de 64 bits como administrador en la carpeta y ejecuta:
 
 El instalador descarga y verifica una copia privada de Python y configura el arranque con Windows. Si tienes el ZIP oficial de Python incluido en el paquete de instalación sin conexión, puedes pasar su ruta con `-PythonZip`. Si el equipo ya tiene una tarea del sistema anterior apuntando a otro servidor, el instalador se detiene para que el administrador revise esa migración.
 
+## Ubicación durante préstamos externos
+
+En el notebook institucional piloto, activa los servicios de ubicación de Windows según la configuración del equipo e instala con:
+
+```powershell
+.\instalar_notebook.ps1 -HabilitarUbicacion
+```
+
+Una actualización conserva esa opción. Puedes deshabilitarla con `-HabilitarUbicacion:$false` al reinstalar. El agente consulta Windows después de que el servidor confirma que el notebook está entregado en un préstamo externo, incluso si el préstamo está atrasado. Si Windows no entrega una lectura nueva o el equipo está desconectado, el reporte de inventario sigue su flujo habitual y las coordenadas no se encolan.
+
+Para validar el piloto, entrega el notebook en una solicitud de artículos con destino externo. Verifica que **Notebooks** muestre hora, precisión y la última posición con Wi-Fi institucional y luego con otra red, usando la tarea del sistema. La posición solo es visible para Coordinación y Dirección durante ese préstamo. El panel oculta la lectura al registrar la devolución. El servidor conserva como máximo una lectura por equipo y la descarta del reporte cuando llega la siguiente lectura de inventario fuera de ese préstamo. Google Maps recibe las coordenadas si alguien abre el enlace.
+
 ## Lecturas y permisos
 
 - Se guarda el último reporte por artículo. Un reporte atrasado no reemplaza una lectura más reciente.
