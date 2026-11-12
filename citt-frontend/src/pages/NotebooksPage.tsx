@@ -172,6 +172,8 @@ function VistaNotebooks() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {equipos.map(({ idArticulo, articulo, codigoDuoc, estadoInventario, observado, reporte }) => {
+                const numeroCitt = articulo.trim().match(/\bCITT(?:-LAP|\s+)(\d{1,3})$/i)?.[1];
+                const nombreEquipo = numeroCitt ? "CITT-LAP" + String(Number(numeroCitt)).padStart(2, "0") : "Sin número asignado";
                 const lectura = observado ? new Date(observado) : null;
                 const reciente = lectura && Date.now() - lectura.getTime() <= 600_000;
                 const bateria = reporte?.bateria;
@@ -179,8 +181,8 @@ function VistaNotebooks() {
                   [uso.nombre.toLowerCase(), uso.ultima_ejecucion]));
                 return <tr key={idArticulo} className="align-top">
                   <td className="px-5 py-4 font-semibold text-slate-900">
-                    {reporte?.equipo || articulo}
-                    <span className="block text-xs font-normal text-slate-600">{codigoDuoc || articulo}</span>
+                    {nombreEquipo}
+                    <span className="block text-xs font-normal text-slate-600">{codigoDuoc || "Inventario #" + idArticulo}</span>
                   </td>
                   <td className="px-5 py-4">{estadoInventario}</td>
                   <td className="whitespace-nowrap px-5 py-4">
