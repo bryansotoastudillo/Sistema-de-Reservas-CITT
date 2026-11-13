@@ -180,17 +180,17 @@ export const referenciasCitt = [
   { nombre: "Pañol", base: rectangulo(266, 0, 98, 39), centro: [315, 20] as Punto, altura: 18 },
   { nombre: "Coffee", base: rectangulo(407, 0, 60, 39), centro: [437, 20] as Punto, altura: 18 },
   { nombre: "Ring de ideas", base: rectangulo(286, 370, 196, 106), centro: [384, 423] as Punto, altura: 12 },
-  { nombre: "Área de estar", base: [[489, 365], [529, 324], [572, 284], [625, 333], [625, 484], [489, 484]] as Punto[], centro: [566, 460] as Punto, altura: 2 },
+  { nombre: "Área de estar", base: [[489, 365], [529, 324], [572, 284], [625, 333], [625, 484], [489, 484]] as Punto[], centro: [548, 460] as Punto, altura: 2 },
   { nombre: "Espacio Maker", base: [[632, 231], [744, 140], [765, 140], [765, 483], [632, 483]] as Punto[], centro: [708, 365] as Punto, altura: 2 },
   { nombre: "Entrada", base: [[734, 42], [785, 42], [785, 138], [735, 138], [678, 111]] as Punto[], centro: [757, 100] as Punto, altura: 2 },
 ];
 
 const moduloSofa = (x: number, y: number, ancho: number, fondo: number) =>
   rectangulo(x, y, ancho, fondo).map(([u, v]): Punto =>
-    [545 - v, 415 + u]);
+    [621 - v, 419 + u]);
 
 export const mobiliarioComun: Mueble[] = [
-  // Respaldo al este, con los cojines mirando al Ring de ideas.
+  // Respaldo junto al límite con el Maker, con los cojines mirando al Ring de ideas.
   pieza(moduloSofa(0, 0, 62, 27), 12, naranja, 4),
   pieza(moduloSofa(0, 0, 62, 6), 32, naranja, 12),
   ...[1, 21, 41].map((x) => pieza(moduloSofa(x, 6, 19, 20), 17, naranja, 12)),
