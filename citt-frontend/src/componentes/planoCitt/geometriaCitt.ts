@@ -185,10 +185,15 @@ export const referenciasCitt = [
   { nombre: "Entrada", base: [[734, 42], [785, 42], [785, 138], [735, 138], [678, 111]] as Punto[], centro: [757, 100] as Punto, altura: 2 },
 ];
 
+const moduloSofa = (x: number, y: number, ancho: number, fondo: number) =>
+  rectangulo(x, y, ancho, fondo).map(([u, v]): Punto =>
+    [565 + u * 0.74 - v * 0.67, 309 + u * 0.67 + v * 0.74]);
+
 export const mobiliarioComun: Mueble[] = [
-  // Sofá naranja del área de estar, respaldos y módulos de asiento.
-  pieza([[525, 325], [556, 289], [622, 345], [622, 365], [593, 367]], 16, naranja, 4),
-  pieza([[525, 325], [530, 319], [603, 363], [597, 370]], 30, naranja, 12),
+  // El respaldo y los tres cojines comparten la orientación del borde del área de estar.
+  pieza(moduloSofa(0, 0, 70, 27), 12, naranja, 4),
+  pieza(moduloSofa(0, 0, 70, 6), 32, naranja, 12),
+  ...[1, 24, 47].map((x) => pieza(moduloSofa(x, 6, 22, 20), 17, naranja, 12)),
   pieza(rectangulo(563, 402, 24, 17), 14, blanco),
   pieza(rectangulo(636, 253, 19, 130), 26, blanco),
   pieza(rectangulo(638, 272, 15, 20), 42, marco, 26),

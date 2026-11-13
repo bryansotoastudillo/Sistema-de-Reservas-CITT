@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useId, useMemo, useRef } from "react";
 import { mobiliarioComun, murosCitt, pisoCitt, referenciasCitt, rectangulo, zonasCitt } from "./geometriaCitt";
 import { Mueble3D, Prisma } from "./escenaCitt";
 import { crearCamara, puntos } from "./camaraCitt";
@@ -10,18 +10,40 @@ type Props = {
   seleccion: string | null;
   onSeleccion: (clave: string) => void;
   angulo: number;
+  inclinacion: number;
+  onGirar: (horizontal: number, vertical: number) => void;
 };
 
-export function PlanoCitt({ estados, seleccion, onSeleccion, angulo }: Props) {
+export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion, onGirar }: Props) {
   const id = useId();
   const clipPiso = `${id}-piso`;
   const sombra = `${id}-sombra`;
   const luz = `${id}-luz`;
   const pisoMadera = `${id}-madera`;
-  const camara = useMemo(() => crearCamara(angulo), [angulo]);
+  const camara = useMemo(() => crearCamara(angulo, inclinacion), [angulo, inclinacion]);
+  const gesto = useRef<{ id: number; x: number; y: number; activo: boolean } | null>(null);
   const orden = [...zonasCitt].sort((a, b) => camara.profundidad(a.base) - camara.profundidad(b.base));
   return (
-    <svg viewBox="0 0 1070 652" className="block h-auto w-full" role="group" aria-label="Plano tridimensional del CITT Valparaíso">
+    <svg viewBox="0 0 1070 652" className="block h-auto w-full cursor-grab select-none active:cursor-grabbing"
+      role="group" aria-label="Plano tridimensional del CITT Valparaíso"
+      onPointerDown={(event) => {
+        if (event.pointerType !== "mouse" || event.button !== 0) return;
+        gesto.current = { id: event.pointerId, x: event.clientX, y: event.clientY, activo: false };
+      }}
+      onPointerMove={(event) => {
+        const inicio = gesto.current;
+        if (!inicio || inicio.id !== event.pointerId || (event.buttons & 1) === 0) return;
+        const dx = event.clientX - inicio.x;
+        const dy = event.clientY - inicio.y;
+        if (!inicio.activo && Math.hypot(dx, dy) < 5) return;
+        if (!inicio.activo) event.currentTarget.setPointerCapture(event.pointerId);
+        gesto.current = { id: event.pointerId, x: event.clientX, y: event.clientY, activo: true };
+        onGirar(dx * 0.45, -dy * 0.3);
+      }}
+      onPointerUp={() => { gesto.current = null; }}
+      onPointerCancel={() => { gesto.current = null; }}
+      onPointerLeave={() => { if (!gesto.current?.activo) gesto.current = null; }}
+    >
       <defs>
         <clipPath id={clipPiso}><polygon points={puntos(camara, pisoCitt)} /></clipPath>
         <filter id={sombra} x="-30%" y="-30%" width="170%" height="180%">

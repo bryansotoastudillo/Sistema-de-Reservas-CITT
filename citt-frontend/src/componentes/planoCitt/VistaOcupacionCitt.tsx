@@ -7,6 +7,7 @@ import type { EstadoPlano } from "./estadosPlano";
 import { zonasCitt } from "./geometriaCitt";
 
 const ANGULO_INICIAL = 25;
+const INCLINACION_INICIAL = 44;
 
 const horaSede = new Intl.DateTimeFormat("es-CL", {
   hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZone: "America/Santiago",
@@ -29,6 +30,12 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
 }) {
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [angulo, setAngulo] = useState(ANGULO_INICIAL);
+  const [inclinacion, setInclinacion] = useState(INCLINACION_INICIAL);
+
+  function girar(horizontal: number, vertical = 0) {
+    setAngulo((valor) => ((valor + horizontal) % 360 + 360) % 360);
+    setInclinacion((valor) => Math.min(75, Math.max(25, valor + vertical)));
+  }
 
   const espacios = typeof consulta === "object" ? consulta.espacios : [];
   const zonas = zonasCitt.map((zona) => {
@@ -67,27 +74,38 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
         <figure className="min-w-0 bg-[#e4ecee]">
           <div role="group" aria-label="Controles de la vista 3D" className="flex flex-wrap items-center gap-1 px-3 pt-3 md:px-5">
             <button type="button" aria-label="Girar a la izquierda" title="Girar a la izquierda"
-              disabled={angulo <= -20} onClick={() => setAngulo((valor) => Math.max(-20, valor - 15))}
+              onClick={() => girar(-15)}
               className="rounded-lg bg-white/90 p-2 text-[#21454c] shadow-sm hover:bg-white disabled:opacity-40">
               <RotateCcw size={18} aria-hidden="true" />
             </button>
-            <button type="button" onClick={() => setAngulo(ANGULO_INICIAL)}
+            <button type="button" onClick={() => {
+              setAngulo(ANGULO_INICIAL);
+              setInclinacion(INCLINACION_INICIAL);
+            }}
               className="rounded-lg bg-white/90 px-3 py-2 text-sm font-semibold text-[#21454c] shadow-sm hover:bg-white">
               Vista inicial
             </button>
             <button type="button" aria-label="Girar a la derecha" title="Girar a la derecha"
-              disabled={angulo >= 55} onClick={() => setAngulo((valor) => Math.min(55, valor + 15))}
+              onClick={() => girar(15)}
               className="rounded-lg bg-white/90 p-2 text-[#21454c] shadow-sm hover:bg-white disabled:opacity-40">
               <RotateCw size={18} aria-hidden="true" />
             </button>
           </div>
-          <div className="overflow-x-auto" tabIndex={0} aria-label="Vista 3D desplazable">
+          <div className="overflow-x-auto" tabIndex={0} aria-label="Vista 3D desplazable"
+            onKeyDown={(event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                event.preventDefault();
+                girar(0, event.key === "ArrowUp" ? 5 : -5);
+              }
+            }}>
             <div className="min-w-[570px]">
-              <PlanoCitt estados={estados} seleccion={seleccion} onSeleccion={setSeleccion} angulo={angulo} />
+              <PlanoCitt estados={estados} seleccion={seleccion} onSeleccion={setSeleccion}
+                angulo={angulo} inclinacion={inclinacion} onGirar={girar} />
             </div>
           </div>
           <figcaption className="flex flex-wrap justify-between gap-2 px-4 pb-4 text-xs text-slate-600 md:px-6">
-            <span>Ocupación según las reservas del sistema.</span>
+            <span>Arrastra con el mouse para girar e inclinar el plano.</span>
             {typeof consulta === "object" && <span>Actualizado a las {horaSede.format(consulta.actualizado)}</span>}
           </figcaption>
         </figure>
