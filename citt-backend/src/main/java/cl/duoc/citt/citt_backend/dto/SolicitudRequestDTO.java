@@ -1,5 +1,7 @@
 package cl.duoc.citt.citt_backend.dto;
 
+import cl.duoc.citt.citt_backend.model.RecursoCowork;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
@@ -44,4 +46,7 @@ public class SolicitudRequestDTO {
 
     @Schema(description = "Destino externo al cual se llevarán los artículos fuera del CITT. Obligatorio si no se selecciona un espacio.")
     private String destinoExterno;
+
+    @Schema(description = "Recursos audiovisuales opcionales para el cowork")
+    private List<@NotNull RecursoCowork> recursosCowork;
 }

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Calendar, Clock, MapPin, Package, FileText, Users, CheckCircle, ArrowLeft } from "lucide-react";
 import api from "../api/axiosConfig";
 import { CatalogoArticulos } from "../componentes/CatalogoArticulos";
+import { recursosCowork, type RecursoCowork } from "../componentes/RecursosCowork";
 
 interface RequerimientoDTO {
   idCategoria: number;
@@ -92,6 +93,12 @@ export const FormularioSolicitudPage: React.FC = () => {
   const [exclusividad, setExclusividad] = useState(false);
   const [usoExterno, setUsoExterno] = useState(false);
   const [destinoExterno, setDestinoExterno] = useState("");
+  const [seleccionCowork, setSeleccionCowork] = useState<RecursoCowork[]>([]);
+  const nombreEspacio = espaciosDisponibles.find((espacio) => espacio.id === idEspacioLocal)?.nombre
+    ?? (idEspacioLocal != null && idEspacioLocal === state?.idEspacio ? state.nombreEspacio : "");
+  const esCowork = /^(?:(?:area|espacio)\s+)?cowork$/i.test(
+    (nombreEspacio ?? "").normalize("NFD").replace(/\p{M}/gu, "").trim(),
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsj, setErrorMsj] = useState("");
@@ -171,7 +178,8 @@ export const FormularioSolicitudPage: React.FC = () => {
         cantidadIntegrantes: cantidadIntegrantes ? Number(cantidadIntegrantes) : null,
         exclusividad: exclusividad,
         requerimientos: requerimientos.length > 0 ? requerimientos : [],
-        destinoExterno: usoExterno ? destinoExterno.trim() : null
+        destinoExterno: usoExterno ? destinoExterno.trim() : null,
+        recursosCowork: esCowork ? seleccionCowork : [],
       });
 
       // Muestra mensaje de éxito y espera antes de redirigir
@@ -289,6 +297,7 @@ export const FormularioSolicitudPage: React.FC = () => {
                 onChange={e => {
                   const val = e.target.value ? Number(e.target.value) : null;
                   setIdEspacioLocal(val);
+                  setSeleccionCowork([]);
                   if (val) {
                     setUsoExterno(false);
                     setDestinoExterno("");
@@ -306,6 +315,28 @@ export const FormularioSolicitudPage: React.FC = () => {
                 )}
               </select>
             </div>
+
+            {esCowork && (
+              <fieldset className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                <legend className="px-1 text-sm font-bold text-slate-800">Recursos audiovisuales del cowork</legend>
+                <p className="mb-3 text-sm text-slate-600">Marca los recursos que necesitas. Todas las opciones son opcionales.</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {(Object.keys(recursosCowork) as RecursoCowork[]).map((recurso) => (
+                    <label key={recurso} className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                      <input type="checkbox" className="size-4 accent-blue-700"
+                        checked={seleccionCowork.includes(recurso)}
+                        onChange={(event) => {
+                          const marcado = event.target.checked;
+                          setSeleccionCowork((previa) => marcado
+                            ? [...previa, recurso] : previa.filter((valor) => valor !== recurso));
+                        }}
+                      />
+                      {recursosCowork[recurso]}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
 
             {/* USO EXTERNO — Solo visible si hay artículos, no hay espacio y no se pidió exclusividad */}
             {!idEspacioLocal && !exclusividad && requerimientos.length > 0 && (

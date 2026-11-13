@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { ResumenRecursosCowork, type RecursoCowork } from "../componentes/RecursosCowork";
 import { Navigate } from "react-router-dom";
 import {
   Search,
@@ -56,6 +57,7 @@ interface SolicitudDTO {
   idsArticulosDanados?: string;
   motivoRechazo?: string;
   destinoExterno?: string;
+  recursosCowork?: RecursoCowork[];
 }
 
 export const HistorialPage: React.FC = () => {
@@ -487,6 +489,7 @@ export const HistorialPage: React.FC = () => {
               )}
 
               {/* Uso Externo (si no hay espacio) */}
+              <ResumenRecursosCowork recursos={solicitudDetalle.recursosCowork} />
               {!solicitudDetalle.nombreEspacio && solicitudDetalle.destinoExterno && (
                 <div className="mb-6">
                   <p className="text-xs text-slate-500 font-bold uppercase tracking-wide mb-2">Uso Externo</p>

@@ -1,5 +1,7 @@
 package cl.duoc.citt.citt_backend.dto;
 
+import cl.duoc.citt.citt_backend.model.RecursoCowork;
+
 import lombok.Builder;
 import lombok.Data;
 
@@ -42,4 +44,5 @@ public class SolicitudResponseDTO {
 
     // Uso externo
     private String destinoExterno;
+    private List<RecursoCowork> recursosCowork;
 }

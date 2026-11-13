@@ -9,7 +9,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "solicitud")
@@ -66,6 +68,13 @@ public class Solicitud {
     // Uso externo: destino al que se llevarán los artículos fuera del CITT
     @Column(name = "destino_externo", length = 300)
     private String destinoExterno;
+
+    @ElementCollection
+    @CollectionTable(name = "solicitud_recurso_cowork", joinColumns = @JoinColumn(name = "id_solicitud"))
+    @Column(name = "recurso", nullable = false, length = 32)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private Set<RecursoCowork> recursosCowork = new HashSet<>();
 
     // --- RELACIONES ---
     @ManyToOne(fetch = FetchType.EAGER)

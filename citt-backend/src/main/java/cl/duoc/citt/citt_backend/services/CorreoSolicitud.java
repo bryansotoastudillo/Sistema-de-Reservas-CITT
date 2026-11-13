@@ -1,6 +1,7 @@
 package cl.duoc.citt.citt_backend.services;
 
 import cl.duoc.citt.citt_backend.dto.SolicitudResponseDTO;
+import cl.duoc.citt.citt_backend.model.RecursoCowork;
 import cl.duoc.citt.citt_backend.services.CorreoCitt.Estado;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -12,6 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 final class CorreoSolicitud {
 
@@ -68,6 +70,10 @@ final class CorreoSolicitud {
         datos.put("Espacio", solicitud.getNombreEspacio());
         datos.put("Artículos", String.join(", ", solicitud.getNombresArticulos()));
         datos.put("Destino externo", solicitud.getDestinoExterno());
+        if (solicitud.getRecursosCowork() != null && !solicitud.getRecursosCowork().isEmpty()) {
+            datos.put("Recursos audiovisuales del cowork", solicitud.getRecursosCowork().stream()
+                    .map(RecursoCowork::etiqueta).collect(Collectors.joining(", ")));
+        }
         return datos;
     }
 

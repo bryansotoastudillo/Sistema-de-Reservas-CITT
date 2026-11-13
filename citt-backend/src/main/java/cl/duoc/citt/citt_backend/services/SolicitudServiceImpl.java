@@ -126,6 +126,13 @@ public class SolicitudServiceImpl implements SolicitudService {
             throw new ReglaNegocioException("Para solicitar la exclusividad del CITT debe seleccionar un espacio físico principal.");
         }
 
+        if (dto.getRecursosCowork() != null && !dto.getRecursosCowork().isEmpty()) {
+            if (!RecursoCowork.correspondeA(solicitud.getEspacio())) {
+                throw new ReglaNegocioException("Los recursos audiovisuales solo se pueden solicitar al reservar el cowork.");
+            }
+            solicitud.getRecursosCowork().addAll(dto.getRecursosCowork());
+        }
+
         if (dto.getRequerimientos() != null && !dto.getRequerimientos().isEmpty()) {
             for (RequerimientoDTO req : dto.getRequerimientos()) {
 
@@ -564,6 +571,7 @@ public class SolicitudServiceImpl implements SolicitudService {
                 .motivoRechazo(s.getMotivoRechazo())
                 .registroAutogestion(s.getRegistroAutogestion())
                 .destinoExterno(s.getDestinoExterno())
+                .recursosCowork(s.getRecursosCowork().stream().sorted().toList())
                 .build();
     }
 }
