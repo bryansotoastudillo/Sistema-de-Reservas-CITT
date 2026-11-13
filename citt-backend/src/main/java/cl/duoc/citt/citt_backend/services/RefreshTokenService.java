@@ -26,8 +26,11 @@ public class RefreshTokenService {
      // Crea o actualiza un Refresh Token para un usuario.
     @Transactional
     public RefreshToken crearRefreshToken(Long usuarioId) {
+        usuarioRepository.bloquearId(usuarioId)
+                .orElseThrow(() -> new ReglaNegocioException("Usuario no encontrado"));
         var usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new ReglaNegocioException("Usuario no encontrado"));
+        if (!usuario.isEnabled()) throw new ReglaNegocioException("La cuenta está deshabilitada.");
 
         // Eliminar tokens antiguos si existen para mantener uno solo por usuario
         refreshTokenRepository.deleteByUsuario(usuario);

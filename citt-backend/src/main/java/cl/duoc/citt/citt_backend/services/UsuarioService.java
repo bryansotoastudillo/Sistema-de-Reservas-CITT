@@ -13,6 +13,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Set;
@@ -25,6 +28,37 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
+    private final RefreshTokenService refreshTokenService;
+
+    @Transactional
+    public UsuarioResponseDTO cambiarEstado(Long id, boolean habilitado, String director) {
+        Usuario usuario = buscarBloqueado(id);
+        if (!habilitado && usuario.getEmail().equalsIgnoreCase(director)) {
+            throw new ReglaNegocioException("No puedes deshabilitar tu propia cuenta.");
+        }
+        if (usuario.isHabilitado() != habilitado) {
+            usuario.setHabilitado(habilitado);
+            usuario.setVersionAcceso(usuario.getVersionAcceso() + 1);
+            refreshTokenService.eliminarPorUsuario(id);
+        }
+        return mapearADTO(usuario);
+    }
+
+    static void exigirDirectorParaRoles(Set<Rol> roles) {
+        if (roles.stream().noneMatch(rol -> "DIRECTOR".equalsIgnoreCase(rol.getNombre()))) return;
+        var autenticacion = SecurityContextHolder.getContext().getAuthentication();
+        if (autenticacion == null || autenticacion.getAuthorities().stream()
+                .noneMatch(autoridad -> "ROLE_DIRECTOR".equals(autoridad.getAuthority()))) {
+            throw new ReglaNegocioException("Solo Dirección puede gestionar cuentas con rol Director.", HttpStatus.FORBIDDEN);
+        }
+    }
+
+    private Usuario buscarBloqueado(Long id) {
+        usuarioRepository.bloquearId(id)
+                .orElseThrow(() -> new ReglaNegocioException("Usuario no encontrado", HttpStatus.NOT_FOUND));
+        return usuarioRepository.findById(id)
+                .orElseThrow(() -> new ReglaNegocioException("Usuario no encontrado", HttpStatus.NOT_FOUND));
+    }
 
      // Obtiene la lista completa de usuarios de la base de datos y los transforma a DTO.
     public List<UsuarioResponseDTO> obtenerTodos() {
@@ -71,10 +105,11 @@ public class UsuarioService {
 
 
      // Actualiza los datos de un usuario existente. Permite cambiar el email y la lista de roles asignados.
+    @Transactional
     public UsuarioResponseDTO actualizar(Long id, UsuarioUpdateDTO usuarioActualizado) {
         //  verificamos que el usuario realmente existe
-        Usuario usuarioExistente = usuarioRepository.findById(id)
-                .orElseThrow(() -> new ReglaNegocioException("Usuario no encontrado con ID: " + id));
+        Usuario usuarioExistente = buscarBloqueado(id);
+        exigirDirectorParaRoles(usuarioExistente.getRoles());
 
         // Actualizamos el campo email
         usuarioExistente.setEmail(usuarioActualizado.getEmail());
@@ -85,6 +120,7 @@ public class UsuarioService {
                     .map(nombre -> rolRepository.findByNombre(nombre.toUpperCase())
                             .orElseThrow(() -> new ReglaNegocioException("Error: El rol " + nombre + " no existe")))
                     .collect(Collectors.toSet());
+            exigirDirectorParaRoles(roles);
             usuarioExistente.setRoles(roles);
         }
 
@@ -95,9 +131,10 @@ public class UsuarioService {
 
 
      // Elimina un usuario de la base de datos permanentemente.
+    @Transactional
     public void eliminar(Long id) {
-        Usuario usuario = usuarioRepository.findById(id)
-                .orElseThrow(() -> new ReglaNegocioException("Usuario no encontrado con ID: " + id));
+        Usuario usuario = buscarBloqueado(id);
+        exigirDirectorParaRoles(usuario.getRoles());
         usuarioRepository.delete(usuario);
     }
 
@@ -113,6 +150,7 @@ public class UsuarioService {
                 .email(usuario.getEmail())
                 .roles(usuario.getRoles().stream().map(Rol::getNombre).collect(Collectors.toSet()))
                 .debeCambiarPassword(usuario.isDebeCambiarPassword())
+                .habilitado(usuario.isHabilitado())
                 .build();
     }
 

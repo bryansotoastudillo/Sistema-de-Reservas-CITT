@@ -15,4 +15,5 @@ public class UsuarioResponseDTO {
     private String email;
     private Set<String> roles;
     private boolean debeCambiarPassword;
+    private boolean habilitado;
 }

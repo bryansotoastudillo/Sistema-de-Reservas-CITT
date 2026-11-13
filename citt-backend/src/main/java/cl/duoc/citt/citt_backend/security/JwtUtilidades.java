@@ -1,5 +1,6 @@
 package cl.duoc.citt.citt_backend.security;
 
+import cl.duoc.citt.citt_backend.model.Usuario;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -72,8 +73,10 @@ public class JwtUtilidades {
 
     // Construye el JWT con la fecha de emisión, expiración y la firma digital.
     public String generarToken(Map<String, Object> extraClaims, UserDetails detallesUsuario) {
+        Map<String, Object> claims = new HashMap<>(extraClaims);
+        if (detallesUsuario instanceof Usuario usuario) claims.put("versionAcceso", usuario.getVersionAcceso());
         return Jwts.builder()
-                .setClaims(extraClaims)
+                .setClaims(claims)
                 .setSubject(detallesUsuario.getUsername())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + jwtExpiration))
@@ -83,17 +86,11 @@ public class JwtUtilidades {
 
     // Verifica que el token pertenezca al usuario y que no haya caducado.
     public boolean esTokenValido(String token, UserDetails detallesUsuario) {
-        final String nombreUsuario = extraerUsername(token);
-        return (nombreUsuario.equals(detallesUsuario.getUsername())) && !esTokenExpirado(token);
-    }
-
-    // comprueba si la fecha de expiración del token es anterior a la hora actual.
-    private boolean esTokenExpirado(String token) {
-        return extraerExpiracion(token).before(new Date());
-    }
-
-    private Date extraerExpiracion(String token) {
-        return extraerClaim(token, Claims::getExpiration);
+        Claims claims = extraerTodosLosClaims(token);
+        Long version = claims.get("versionAcceso", Long.class);
+        return claims.getSubject().equals(detallesUsuario.getUsername()) && claims.getExpiration().after(new Date())
+                && (!(detallesUsuario instanceof Usuario usuario)
+                    || usuario.getVersionAcceso() == (version == null ? 0L : version));
     }
 
     // Abre el token usando la llave secreta para leer todo su contenido (Claims).

@@ -74,6 +74,7 @@ public class AutenticacionService {
                 .map(nombre -> rolRepository.findByNombre(nombre.toUpperCase())
                         .orElseThrow(() -> new ReglaNegocioException("Error: El rol " + nombre + " no existe")))
                 .collect(Collectors.toSet());
+        UsuarioService.exigirDirectorParaRoles(roles);
 
         String passwordProvisoria = UUID.randomUUID().toString().substring(0, 8);
 
@@ -145,8 +146,9 @@ public class AutenticacionService {
         var usuario = usuarioRepository.findByEmail(solicitud.getEmail())
                 .orElseThrow(() -> new ReglaNegocioException("Usuario no encontrado"));
 
-        var tokenJwt = jwtUtilidades.generarToken(usuario);
         var refreshToken = refreshTokenService.crearRefreshToken(usuario.getId());
+        usuario = refreshToken.getUsuario();
+        var tokenJwt = jwtUtilidades.generarToken(usuario);
 
         return AutenticacionResponseDTO.builder()
                 .token(tokenJwt)
@@ -176,7 +178,7 @@ public class AutenticacionService {
      */
     @Transactional
     public void solicitarRecuperacionPassword(OlvidoPasswordRequestDTO solicitud) {
-        var usuarioOpt = usuarioRepository.findByEmail(solicitud.getEmail());
+        var usuarioOpt = usuarioRepository.findByEmail(solicitud.getEmail()).filter(Usuario::isEnabled);
 
         // PROTECCIÓN: No revelamos si el correo existe o no
         if (usuarioOpt.isEmpty()) {
@@ -211,6 +213,7 @@ public class AutenticacionService {
         }
 
         Usuario usuario = resetToken.getUsuario();
+        if (!usuario.isEnabled()) throw new ReglaNegocioException("El código de recuperación es inválido o no existe");
         usuario.setPassword(passwordEncoder.encode(solicitud.getNuevaPassword()));
         usuario.setDebeCambiarPassword(false);
         usuarioRepository.save(usuario);
@@ -247,9 +250,12 @@ public class AutenticacionService {
     // RENOVACIÓN DE TOKEN
     @Transactional
     public AutenticacionResponseDTO refrescarToken(TokenRefreshRequestDTO solicitud) {
-        return refreshTokenRepository.findByToken(solicitud.getRefreshToken())
+        return refreshTokenRepository.buscarUsuarioId(solicitud.getRefreshToken())
+                .flatMap(usuarioRepository::bloquearId)
+                .flatMap(id -> refreshTokenRepository.findByToken(solicitud.getRefreshToken()))
                 .map(refreshTokenService::verificarExpiracion)
                 .map(RefreshToken::getUsuario)
+                .filter(Usuario::isEnabled)
                 .map(usuario -> {
                     String token = jwtUtilidades.generarToken(usuario);
                     var nuevoRefreshToken = refreshTokenService.crearRefreshToken(usuario.getId());
