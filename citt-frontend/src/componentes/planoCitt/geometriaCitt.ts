@@ -169,6 +169,17 @@ export const pisoCitt: Punto[] = [
   [0, 0], [767, 0], [767, 39], [786, 39], [786, 139], [767, 139], [767, 484], [0, 484],
 ];
 
+export const pizarrasCitt: (Omit<Zona, "marcador"> & { marcador?: never })[] = [185, 227, 269].map((y, i) => ({
+  clave: `P${i + 1}`,
+  nombre: `Pizarra ${i + 1}`,
+  base: rectangulo(159, y, 6, 38),
+  muebles: [
+    pieza(rectangulo(150, y + 3, 24, 4), 6, marco),
+    pieza(rectangulo(150, y + 31, 24, 4), 6, marco),
+    pieza(rectangulo(159, y, 6, 38), 57, blanco, 5),
+  ],
+}));
+
 export const murosCitt: Punto[][] = [
   rectangulo(-17, -8, 787, 8),
   rectangulo(-17, -8, 17, 500),

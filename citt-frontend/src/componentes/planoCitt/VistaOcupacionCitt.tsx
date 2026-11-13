@@ -1,14 +1,25 @@
-import { useState } from "react";
-import { CalendarPlus, RefreshCw, RotateCcw, RotateCw, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarPlus, Pencil, RefreshCw, RotateCcw, RotateCw, Users } from "lucide-react";
+import { isAxiosError } from "axios";
 import { Link } from "react-router-dom";
+import api from "../../api/axiosConfig";
 import type { ConsultaEspacios, Espacio } from "../../hooks/useOcupacionEspacios";
 import { PlanoCitt } from "./PlanoCitt";
+import type { PosicionesPlano } from "./PlanoCitt";
 import { estadosPlano } from "./estadosPlano";
 import type { EstadoPlano } from "./estadosPlano";
-import { zonasCitt } from "./geometriaCitt";
+import { pizarrasCitt, zonasCitt } from "./geometriaCitt";
 
 const ANGULO_INICIAL = 25;
 const INCLINACION_INICIAL = 44;
+const objetosEditables = [...zonasCitt, ...pizarrasCitt];
+type Distribucion = { revision: number; posiciones: PosicionesPlano };
+const movimientos = [
+  { nombre: "Mover a la izquierda", icono: ArrowLeft, x: -5, y: 0 },
+  { nombre: "Mover hacia arriba", icono: ArrowUp, x: 0, y: -5 },
+  { nombre: "Mover hacia abajo", icono: ArrowDown, x: 0, y: 5 },
+  { nombre: "Mover a la derecha", icono: ArrowRight, x: 5, y: 0 },
+];
 
 const horaSede = new Intl.DateTimeFormat("es-CL", {
   hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZone: "America/Santiago",
@@ -32,6 +43,60 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [angulo, setAngulo] = useState(ANGULO_INICIAL);
   const [inclinacion, setInclinacion] = useState(INCLINACION_INICIAL);
+  const [distribucion, setDistribucion] = useState<Distribucion | null>(null);
+  const [borrador, setBorrador] = useState<PosicionesPlano | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [intentoPlano, setIntentoPlano] = useState(0);
+  const [errorPlano, setErrorPlano] = useState("");
+  const editar = borrador !== null;
+
+  useEffect(() => {
+    const consulta = new AbortController();
+    api.get<Distribucion>("/plano-citt", { signal: consulta.signal })
+      .then(({ data }) => {
+        if (!consulta.signal.aborted) setDistribucion(data);
+      })
+      .catch(() => {
+        if (!consulta.signal.aborted) setErrorPlano("No se pudo cargar la distribución guardada.");
+      });
+    return () => consulta.abort();
+  }, [intentoPlano]);
+
+  function mover(clave: string, dx: number, dy: number) {
+    const objeto = objetosEditables.find((valor) => valor.clave === clave);
+    if (!objeto || guardando) return;
+    const puntos = [...objeto.base, ...objeto.muebles.flatMap((mueble) => mueble.base)];
+    const xs = puntos.map(([x]) => x);
+    const ys = puntos.map(([, y]) => y);
+    setBorrador((actual) => {
+      if (!actual) return actual;
+      const anterior = actual[clave] ?? { x: 0, y: 0 };
+      return { ...actual, [clave]: {
+        x: Math.min(767 - Math.max(...xs), Math.max(-Math.min(...xs), anterior.x + dx)),
+        y: Math.min(484 - Math.max(...ys), Math.max(-Math.min(...ys), anterior.y + dy)),
+      } };
+    });
+  }
+
+  async function guardarPlano() {
+    if (!distribucion || !borrador || guardando) return;
+    setGuardando(true);
+    setErrorPlano("");
+    try {
+      const { data } = await api.put<Distribucion>("/plano-citt", {
+        revision: distribucion.revision, posiciones: borrador,
+      });
+      setDistribucion(data);
+      setBorrador(null);
+      setSeleccion(null);
+    } catch (error) {
+      setErrorPlano(isAxiosError(error) && error.response?.status === 409
+        ? "Otra sesión guardó el plano. Cancela y vuelve a cargarlo antes de editar."
+        : "No se pudo guardar el plano. Puedes reintentar.");
+    } finally {
+      setGuardando(false);
+    }
+  }
 
   function girar(horizontal: number, vertical = 0) {
     setAngulo((valor) => ((valor + horizontal) % 360 + 360) % 360);
@@ -64,11 +129,37 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
             );
           })}
         </ul>
+        <div className="flex flex-wrap gap-2">
+        {!editar && distribucion && <button type="button" onClick={() => {
+          setBorrador(distribucion.posiciones);
+          setErrorPlano("");
+        }} className="inline-flex items-center gap-2 rounded-lg bg-[#003b73] px-3 py-2 text-sm font-semibold text-white">
+          <Pencil size={15} aria-hidden="true" /> Editar plano
+        </button>}
+        {editar && <>
+          <button type="button" onClick={guardarPlano} disabled={guardando}
+            className="rounded-lg bg-[#003b73] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+            {guardando ? "Guardando…" : "Guardar plano"}
+          </button>
+          <button type="button" disabled={guardando} onClick={() => {
+            setBorrador(null);
+            setSeleccion(null);
+            setErrorPlano("");
+            setIntentoPlano(valor => valor + 1);
+          }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">Cancelar</button>
+        </>}
         <button type="button" onClick={actualizar}
           className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-[#003b73] hover:bg-slate-50">
           <RefreshCw size={15} aria-hidden="true" /> Actualizar
         </button>
+        </div>
       </div>
+      {errorPlano && <p role="alert" className="bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        {errorPlano} {!editar && <button type="button" className="font-semibold underline" onClick={() => {
+          setErrorPlano("");
+          setIntentoPlano(valor => valor + 1);
+        }}>Volver a cargar el plano</button>}
+      </p>}
       {consulta === "cargando" && <p role="status" className="px-4 py-3 text-sm text-slate-600">Consultando la ocupación de los espacios…</p>}
       {consulta === "error" && <p role="alert" className="bg-amber-50 px-4 py-3 text-sm text-amber-900">No se pudo consultar la ocupación. Pulsa Actualizar para volver a intentarlo.</p>}
       <div className="grid min-w-0 xl:grid-cols-[minmax(0,1fr)_250px]">
@@ -102,11 +193,12 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
             }}>
             <div className="min-w-[570px]">
               <PlanoCitt estados={estados} seleccion={seleccion} onSeleccion={setSeleccion}
-                angulo={angulo} inclinacion={inclinacion} onGirar={girar} />
+                angulo={angulo} inclinacion={inclinacion} onGirar={girar}
+                posiciones={borrador ?? distribucion?.posiciones ?? {}} editar={editar} onMover={mover} />
             </div>
           </div>
           <figcaption className="flex flex-wrap justify-between gap-2 px-4 pb-4 text-xs text-slate-600 md:px-6">
-            <span>Selecciona un espacio para reservar. Arrastra el plano para girarlo.</span>
+            <span>{editar ? "Arrastra un espacio o una pizarra para moverlo." : "Selecciona un espacio para reservar. Arrastra el plano para girarlo."}</span>
             {typeof consulta === "object" && <span>Actualizado a las {horaSede.format(consulta.actualizado)}</span>}
           </figcaption>
         </figure>
@@ -131,7 +223,23 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
               );
             })}
           </ul>
-          {zonaSeleccionada && (
+          {editar && <>
+            <ul aria-label="Pizarras" className="mt-3 flex flex-wrap gap-2">
+              {pizarrasCitt.map(pizarra => <li key={pizarra.clave}>
+                <button type="button" onClick={() => setSeleccion(pizarra.clave)} aria-pressed={seleccion === pizarra.clave}
+                  className="rounded-lg border border-slate-300 px-2 py-1 text-sm aria-pressed:bg-blue-100">{pizarra.nombre}</button>
+              </li>)}
+            </ul>
+            {seleccion && <div role="group" aria-label={`Mover ${objetosEditables.find(objeto => objeto.clave === seleccion)?.nombre}`}
+              className="mt-3 flex flex-wrap gap-2">
+              {movimientos.map(({ nombre, icono: Icono, x, y }) => (
+                <button type="button" key={nombre} aria-label={nombre} title={nombre}
+                  disabled={guardando} onClick={() => mover(seleccion, x, y)}
+                  className="rounded-lg border border-slate-300 p-2 hover:bg-slate-50"><Icono size={16} aria-hidden="true" /></button>
+              ))}
+            </div>}
+          </>}
+          {!editar && zonaSeleccionada && (
             <div className="mt-3 space-y-2 rounded-lg bg-slate-100 p-3 text-sm text-slate-700">
               <p className="flex items-center gap-2" role="status">
                 <Users size={16} aria-hidden="true" />

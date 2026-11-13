@@ -20,6 +20,11 @@ export function crearCamara(grados: number, inclinacion: number) {
       const [x, y] = plano(punto);
       return [desplazarX + escala * x, desplazarY + escala * (y - altura * Math.cos(elevacion))];
     },
+    desplazarEnPiso(dx: number, dy: number): Punto {
+      const x = dx / escala;
+      const y = dy / (escala * Math.sin(elevacion));
+      return [x * coseno + y * seno, -x * seno + y * coseno];
+    },
     profundidad(base: Punto[]) {
       return Math.max(...base.map((punto) => plano(punto)[1]));
     },

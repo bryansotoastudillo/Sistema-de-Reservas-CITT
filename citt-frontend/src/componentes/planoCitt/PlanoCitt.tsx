@@ -1,5 +1,6 @@
 import { useId, useMemo, useRef } from "react";
-import { mobiliarioComun, murosCitt, pisoCitt, referenciasCitt, rectangulo, zonasCitt } from "./geometriaCitt";
+import { mobiliarioComun, murosCitt, pisoCitt, pizarrasCitt, referenciasCitt, rectangulo, zonasCitt } from "./geometriaCitt";
+import type { Punto } from "./geometriaCitt";
 import { Mueble3D, Prisma } from "./escenaCitt";
 import { crearCamara, puntos } from "./camaraCitt";
 import { estadosPlano } from "./estadosPlano";
@@ -12,33 +13,57 @@ type Props = {
   angulo: number;
   inclinacion: number;
   onGirar: (horizontal: number, vertical: number) => void;
+  posiciones: PosicionesPlano;
+  editar: boolean;
+  onMover: (clave: string, dx: number, dy: number) => void;
 };
 
-export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion, onGirar }: Props) {
+export type PosicionesPlano = Record<string, { x: number; y: number }>;
+
+export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion, onGirar, posiciones, editar, onMover }: Props) {
   const id = useId();
   const clipPiso = `${id}-piso`;
   const sombra = `${id}-sombra`;
   const luz = `${id}-luz`;
   const pisoMadera = `${id}-madera`;
   const camara = useMemo(() => crearCamara(angulo, inclinacion), [angulo, inclinacion]);
-  const gesto = useRef<{ id: number; x: number; y: number; activo: boolean } | null>(null);
-  const orden = [...zonasCitt].sort((a, b) => camara.profundidad(a.base) - camara.profundidad(b.base));
+  const gesto = useRef<{ id: number; x: number; y: number; activo: boolean; clave?: string } | null>(null);
+  const objetos = [...zonasCitt, ...pizarrasCitt].map((objeto) => {
+    const desplazamiento = posiciones[objeto.clave];
+    const mover = ([x, y]: Punto): Punto => [x + (desplazamiento?.x ?? 0), y + (desplazamiento?.y ?? 0)];
+    return {
+      ...objeto,
+      base: objeto.base.map(mover),
+      muebles: objeto.muebles.map((mueble) => ({ ...mueble, base: mueble.base.map(mover) })),
+      marcador: objeto.marcador ? mover(objeto.marcador) : undefined,
+    };
+  }).sort((a, b) => camara.profundidad(a.base) - camara.profundidad(b.base));
   return (
-    <svg viewBox="0 0 1070 652" className="block h-auto w-full cursor-grab select-none active:cursor-grabbing"
+    <svg viewBox="0 0 1070 652" className={`block h-auto w-full select-none ${editar ? "touch-none cursor-move" : "cursor-grab active:cursor-grabbing"}`}
       role="group" aria-label="Plano tridimensional del CITT Valparaíso"
       onPointerDown={(event) => {
-        if (event.pointerType !== "mouse" || event.button !== 0) return;
-        gesto.current = { id: event.pointerId, x: event.clientX, y: event.clientY, activo: false };
+        if ((!editar && event.pointerType !== "mouse") || event.button !== 0) return;
+        const clave = editar && event.target instanceof Element
+          ? event.target.closest("[data-objeto-plano]")?.getAttribute("data-objeto-plano") ?? undefined : undefined;
+        if (editar && !clave) return;
+        gesto.current = { id: event.pointerId, x: event.clientX, y: event.clientY, activo: false, clave };
       }}
       onPointerMove={(event) => {
         const inicio = gesto.current;
-        if (!inicio || inicio.id !== event.pointerId || (event.buttons & 1) === 0) return;
+        if (!inicio || inicio.id !== event.pointerId) return;
         const dx = event.clientX - inicio.x;
         const dy = event.clientY - inicio.y;
         if (!inicio.activo && Math.hypot(dx, dy) < 5) return;
-        if (!inicio.activo) event.currentTarget.setPointerCapture(event.pointerId);
-        gesto.current = { id: event.pointerId, x: event.clientX, y: event.clientY, activo: true };
-        onGirar(dx * 0.45, -dy * 0.3);
+        if (!inicio.activo) {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          if (inicio.clave) onSeleccion(inicio.clave);
+        }
+        gesto.current = { ...inicio, x: event.clientX, y: event.clientY, activo: true };
+        if (inicio.clave) {
+          const factor = 1070 / event.currentTarget.getBoundingClientRect().width;
+          const [x, y] = camara.desplazarEnPiso(dx * factor, dy * factor);
+          onMover(inicio.clave, x, y);
+        } else onGirar(dx * 0.45, -dy * 0.3);
       }}
       onPointerUp={() => { gesto.current = null; }}
       onPointerCancel={() => { gesto.current = null; }}
@@ -99,7 +124,24 @@ export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion
             strokeWidth="2" paintOrder="stroke" fontSize="14" fontWeight="650">{nombre}</text>;
         })}
       </g>
-      {orden.map((zona) => {
+      {objetos.map((zona) => {
+        if (!zona.marcador) return (
+          <g key={zona.clave} data-objeto-plano={zona.clave}
+            role={editar ? "button" : undefined} tabIndex={editar ? 0 : undefined}
+            aria-label={zona.nombre} aria-pressed={editar ? zona.clave === seleccion : undefined}
+            onClick={editar ? () => onSeleccion(zona.clave) : undefined}
+            onKeyDown={editar ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSeleccion(zona.clave);
+              }
+            } : undefined}>
+            <title>{zona.nombre}</title>
+            {zona.muebles.map((mueble, indice) => <Mueble3D key={indice} camara={camara} mueble={mueble} />)}
+            {editar && <polygon points={puntos(camara, zona.base, 57)}
+              fill="none" stroke={zona.clave === seleccion ? "#003b73" : "#64748b"} strokeWidth="3" />}
+          </g>
+        );
         const estado = estadosPlano[estados[zona.clave] ?? "sinDatos"];
         const activo = zona.clave === seleccion;
         const alturaMarcador = zona.alturaMarcador ?? 50;
@@ -108,11 +150,12 @@ export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion
         return (
           <g
             key={zona.clave}
+            data-objeto-plano={zona.clave}
             role="button"
             tabIndex={0}
             aria-label={`${zona.nombre}, ${estado.texto}`}
             aria-pressed={activo}
-            className="cursor-pointer outline-none focus-visible:[&>circle:last-of-type]:stroke-[#003b73] focus-visible:[&>circle:last-of-type]:stroke-[4]"
+            className={`${editar ? "cursor-move" : "cursor-pointer"} outline-none focus-visible:[&>circle:last-of-type]:stroke-[#003b73] focus-visible:[&>circle:last-of-type]:stroke-[4]`}
             onClick={() => onSeleccion(zona.clave)}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
