@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +19,15 @@ import java.util.List;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+
+    public record EstadoCuenta(@jakarta.validation.constraints.NotNull Boolean habilitado) {}
+
+    @PatchMapping("/{id}/estado")
+    @PreAuthorize("hasRole('DIRECTOR')")
+    public ResponseEntity<UsuarioResponseDTO> cambiarEstado(@PathVariable Long id,
+            @jakarta.validation.Valid @RequestBody EstadoCuenta estado, Authentication autenticacion) {
+        return ResponseEntity.ok(usuarioService.cambiarEstado(id, estado.habilitado(), autenticacion.getName()));
+    }
 
     // Cualquier usuario autenticado puede ver su propia información
     @GetMapping("/mi-perfil")

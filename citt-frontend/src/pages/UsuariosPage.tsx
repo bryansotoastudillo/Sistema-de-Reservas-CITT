@@ -7,6 +7,7 @@ import InputForm from '../componentes/InputForm';
 import SessionTimeout from '../componentes/sessionTimeout';
 import Modal from '../componentes/Modal';
 import api from '../api/axiosConfig';
+import { isAxiosError } from 'axios';
 
 const TODOS_LOS_ROLES = ['ALUMNO', 'DOCENTE', 'AYUDANTE', 'COORDINADOR', 'DIRECTOR'];
 
@@ -14,6 +15,7 @@ interface UsuarioData {
   id: number;
   email: string;
   roles: string[];
+  habilitado?: boolean;
 }
 
 const UsuariosPage = () => {
@@ -43,6 +45,11 @@ const UsuariosPage = () => {
   const [rolesEdicion, setRolesEdicion] = useState<string[]>([]);
   const [isEditLoading, setIsEditLoading] = useState(false);
   const [editError, setEditError] = useState('');
+  const [usuarioEstado, setUsuarioEstado] = useState<UsuarioData | null>(null);
+  const [guardandoEstado, setGuardandoEstado] = useState(false);
+  const [errorEstado, setErrorEstado] = useState('');
+  const esDirector = rolActivoActual === 'DIRECTOR';
+  const rolesGestionables = TODOS_LOS_ROLES.filter(rol => esDirector || rol !== 'DIRECTOR');
 
 
   useEffect(() => {
@@ -190,6 +197,25 @@ const UsuariosPage = () => {
   };
 
 
+  const cambiarEstado = async () => {
+    if (!usuarioEstado || guardandoEstado) return;
+    setGuardandoEstado(true);
+    setErrorEstado('');
+    try {
+      const { data } = await api.patch<UsuarioData>(`/usuarios/${usuarioEstado.id}/estado`, {
+        habilitado: usuarioEstado.habilitado === false,
+      });
+      setUsuarios(actuales => actuales.map(usuario => usuario.id === data.id ? data : usuario));
+      setSuccessMsg(`Cuenta ${data.habilitado ? 'habilitada' : 'deshabilitada'} correctamente.`);
+      setUsuarioEstado(null);
+    } catch (error) {
+      setErrorEstado(isAxiosError(error) ? error.response?.data?.mensaje || 'No se pudo actualizar la cuenta.'
+        : 'No se pudo actualizar la cuenta.');
+    } finally {
+      setGuardandoEstado(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
@@ -234,6 +260,25 @@ const UsuariosPage = () => {
 
       <SessionTimeout />
 
+      <Modal isOpen={usuarioEstado !== null} onClose={() => !guardandoEstado && setUsuarioEstado(null)}
+        titulo={usuarioEstado?.habilitado === false ? "Habilitar cuenta" : "Deshabilitar cuenta"}
+        icono={<Shield size={20} />}>
+        {usuarioEstado && <div className="space-y-4">
+          <p className="break-all font-semibold">{usuarioEstado.email}</p>
+          <p className="text-sm text-slate-600">{usuarioEstado.habilitado === false
+            ? "La cuenta podrá volver a iniciar sesión."
+            : "La cuenta perderá el acceso y sus sesiones se invalidarán. Sus solicitudes quedarán guardadas."}</p>
+          {errorEstado && <p role="alert" className="text-sm text-red-700">{errorEstado}</p>}
+          <div className="flex flex-wrap gap-3">
+            <Boton variante="primario" disabled={guardandoEstado} onClick={cambiarEstado}>
+              {guardandoEstado ? "Guardando…" : usuarioEstado.habilitado === false ? "Habilitar cuenta" : "Deshabilitar cuenta"}
+            </Boton>
+            <button type="button" disabled={guardandoEstado} onClick={() => setUsuarioEstado(null)}
+              className="rounded-xl border border-slate-200 px-4 py-2 font-semibold">Cancelar</button>
+          </div>
+        </div>}
+      </Modal>
+
       {/* Modal de Edición de Roles */}
       <Modal
         isOpen={showEditModal}
@@ -255,7 +300,7 @@ const UsuariosPage = () => {
             )}
 
             <div className="grid grid-cols-2 gap-3 mb-6">
-              {TODOS_LOS_ROLES.map(rol => {
+              {rolesGestionables.map(rol => {
                 const seleccionado = rolesEdicion.includes(rol);
                 return (
                   <div
@@ -336,7 +381,7 @@ const UsuariosPage = () => {
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-3">Roles (Selección múltiple)</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {TODOS_LOS_ROLES.map(rol => {
+                    {rolesGestionables.map(rol => {
                       const seleccionado = rolesSeleccionados.includes(rol);
                       return (
                         <div
@@ -401,6 +446,7 @@ const UsuariosPage = () => {
                       <th className="p-4">ID</th>
                       <th className="p-4">Correo</th>
                       <th className="p-4">Roles Asignados</th>
+                      <th className="p-4">Estado</th>
                       <th className="p-4 text-center">Acciones</th>
                     </tr>
                   </thead>
@@ -421,20 +467,33 @@ const UsuariosPage = () => {
                               ))}
                             </div>
                           </td>
+                          <td className="p-4">
+                            <span className={`rounded-full px-2 py-1 text-xs font-semibold ${usuario.habilitado === false
+                              ? 'bg-red-50 text-red-800' : 'bg-emerald-50 text-emerald-800'}`}>
+                              {usuario.habilitado === false ? 'Deshabilitada' : 'Habilitada'}
+                            </span>
+                          </td>
                           <td className="p-4 text-center">
-                            <button
+                            {(esDirector || !usuario.roles.includes('DIRECTOR')) && <button
                               onClick={() => abrirModalEdicion(usuario)}
                               className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors inline-flex"
                               title="Editar Roles"
                             >
                               <Edit size={18} />
-                            </button>
+                            </button>}
+                            {esDirector && usuario.email.toLowerCase() !== userData.email.toLowerCase() &&
+                              <button type="button" onClick={() => {
+                                setErrorEstado('');
+                                setUsuarioEstado(usuario);
+                              }} className="rounded-lg px-2 py-1 text-sm font-semibold text-blue-800 hover:bg-blue-50">
+                                {usuario.habilitado === false ? 'Habilitar' : 'Deshabilitar'}
+                              </button>}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="p-8 text-center text-slate-500 font-medium">
+                        <td colSpan={5} className="p-8 text-center text-slate-500 font-medium">
                           No se encontraron usuarios con ese correo.
                         </td>
                       </tr>

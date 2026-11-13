@@ -73,7 +73,7 @@ public class JwtFiltroAutenticacion extends OncePerRequestFilter {
                 if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-                    if (jwtUtilidades.esTokenValido(jwt, userDetails)) {
+                    if (userDetails.isEnabled() && jwtUtilidades.esTokenValido(jwt, userDetails)) {
 
                         // REGLA FUNDAMENTAL: Control de cambio de contraseña provisional
                         if (userDetails instanceof cl.duoc.citt.citt_backend.model.Usuario) {
