@@ -11,6 +11,8 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 
+import java.util.Map;
+
 @EnabledIfEnvironmentVariable(named = "CITT_MAIL_LIVE_TEST", matches = "true")
 class EmailDeliveryTest {
     @Configuration
@@ -25,8 +27,10 @@ class EmailDeliveryTest {
     @Test void enviarCorreoRealSinPostgres() throws Exception {
         try (var context = new AnnotationConfigApplicationContext(Config.class)) {
             context.getBean(EmailService.class).enviarCorreo(
-                "cittvalparaiso@gmail.com", "Prueba de correo CITT",
-                "Mensaje de prueba del Sistema de Reservas CITT.");
+                "cittvalparaiso@gmail.com", CorreoCitt.crear(
+                    "Prueba de correo CITT", CorreoCitt.Estado.INFORMATIVO,
+                    "Prueba de correo CITT", "Mensaje de prueba del Sistema de Reservas CITT.",
+                    Map.of(), "Abrir Reservas CITT"));
         }
     }
 }

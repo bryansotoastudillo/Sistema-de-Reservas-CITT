@@ -8,6 +8,7 @@ import cl.duoc.citt.citt_backend.exception.ReglaNegocioException;
 import cl.duoc.citt.citt_backend.model.*;
 import cl.duoc.citt.citt_backend.repositories.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +32,7 @@ public class SolicitudServiceImpl implements SolicitudService {
     private final EstadoArticuloRepository estadoArticuloRepository;
     private final CategoriaRepository categoriaRepository;
     private final EmailService emailService;
+    private final ApplicationEventPublisher eventos;
 
     @Override
     @Transactional
@@ -164,7 +166,9 @@ public class SolicitudServiceImpl implements SolicitudService {
             solicitud.setDestinoExterno(dto.getDestinoExterno().trim());
         }
 
-        return mapToDTO(solicitudRepository.save(solicitud));
+        SolicitudResponseDTO creada = mapToDTO(solicitudRepository.save(solicitud));
+        eventos.publishEvent(new NotificacionNuevaSolicitud.SolicitudCreada(creada));
+        return creada;
     }
 
     @Override
@@ -246,14 +250,7 @@ public class SolicitudServiceImpl implements SolicitudService {
                     guardada.getMotivoRechazo()
             );
         } else if (nombreEstado.equals("APROBADA")) {
-            emailService.enviarCorreoAprobacion(
-                    dtoResponse.getEmailUsuario(),
-                    dtoResponse.getIdSolicitud(),
-                    dtoResponse.getNombreEspacio(),
-                    dtoResponse.getNombresArticulos(),
-                    dtoResponse.getFecha(),
-                    dtoResponse.getHoraInicio()
-            );
+            eventos.publishEvent(new EmailService.SolicitudAprobada(dtoResponse));
         }
 
         return dtoResponse;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useSeguridad } from "../hooks/useSeguridad"; 
 import { Plus, Trash2, Edit, AlertTriangle } from "lucide-react";
@@ -9,23 +9,16 @@ import { ModalEditarEspacio } from "../componentes/ModalEditarEspacio";
 import { ModalConfirmarEliminar } from "../componentes/ModalConfirmarEliminar";
 import { ModalActualizarEstado } from "../componentes/ModalActualizarEstado"; 
 
-type RolUsuario = "ADMIN" | "PROFESOR" | "AYUDANTE" | "ALUMNO";
-
-interface Espacio {
-  id: number;
-  nombre: string;
-  comentarios: string;
-  capacidad: number;
-  estado: string;
-}
+import { VistaOcupacionCitt } from "../componentes/planoCitt/VistaOcupacionCitt";
+import { useOcupacionEspacios } from "../hooks/useOcupacionEspacios";
+import type { Espacio } from "../hooks/useOcupacionEspacios";
 
 const EspaciosPage = () => {
-  const { isVerificando } = useSeguridad(); 
-  const [rolAsignado, setRolAsignado] = useState<RolUsuario>("ALUMNO");
-  
-  // Shared States
-  const [espacios, setEspacios] = useState<Espacio[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { isVerificando } = useSeguridad();
+  const rolActivo = localStorage.getItem("activeRole") || "";
+  const isAdminArea = ["ADMIN", "DIRECTOR", "COORDINADOR"].includes(rolActivo.toUpperCase());
+  const { consulta, actualizar: fetchEspacios } = useOcupacionEspacios(!isVerificando && isAdminArea);
+  const espacios = typeof consulta === "object" ? consulta.espacios : [];
 
   // Admin Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,89 +26,23 @@ const EspaciosPage = () => {
   const [espacioABorrar, setEspacioABorrar] = useState<Espacio | null>(null);
   const [espacioEstado, setEspacioEstado] = useState<Espacio | null>(null);
 
-  useEffect(() => {
-    if (!isVerificando) {
-      const rolActivo = localStorage.getItem("activeRole"); 
-      const rolesRaw = localStorage.getItem("userRoles");
-
-      try {
-        if (rolActivo) {
-          const rolUpper = rolActivo.toUpperCase();
-          if (rolUpper.includes("ADMIN") || rolUpper.includes("COORDINADOR") || rolUpper.includes("DIRECTOR")) {
-            setRolAsignado("ADMIN");
-            return;
-          }
-          if (rolUpper.includes("PROFESOR") || rolUpper.includes("DOCENTE")) {
-            setRolAsignado("PROFESOR");
-            return;
-          }
-          if (rolUpper.includes("AYUDANTE")) {
-            setRolAsignado("AYUDANTE");
-            return;
-          }
-        }
-
-        if (rolesRaw) {
-          const rolesArray = JSON.parse(rolesRaw);
-          const esAdminOCoordinador = rolesArray.some((rol: any) => {
-            const nombreRol = typeof rol === "string" ? rol : rol.nombre || rol.authority || "";
-            const rUpper = nombreRol.toUpperCase();
-            return rUpper.includes("ADMIN") || rUpper.includes("COORDINADOR") || rUpper.includes("DIRECTOR");
-          });
-          const esProfesor = rolesArray.some((rol: any) => {
-            const nombreRol = typeof rol === "string" ? rol : rol.nombre || rol.authority || "";
-            const rUpper = nombreRol.toUpperCase();
-            return rUpper.includes("PROFESOR") || rUpper.includes("DOCENTE");
-          });
-          const esAyudante = rolesArray.some((rol: any) => {
-            const nombreRol = typeof rol === "string" ? rol : rol.nombre || rol.authority || "";
-            return nombreRol.toUpperCase().includes("AYUDANTE");
-          });
-
-          if (esAdminOCoordinador) setRolAsignado("ADMIN");
-          else if (esProfesor) setRolAsignado("PROFESOR");
-          else if (esAyudante) setRolAsignado("AYUDANTE");
-          else setRolAsignado("ALUMNO");
-        }
-      } catch (error) {
-        console.error("Error al procesar la asignación de roles", error);
-        setRolAsignado("ALUMNO"); 
-      }
-    }
-  }, [isVerificando]);
-
-  const fetchEspacios = async () => {
-    try {
-      setIsLoading(true);
-      const response = await api.get("/espacios");
-      setEspacios(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error("Error al cargar los espacios:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!isVerificando) {
-      fetchEspacios();
-    }
-  }, [isVerificando]);
-
   const ejecutarEliminar = async () => {
     if (!espacioABorrar) return;
     try { 
       await api.delete(`/espacios/${espacioABorrar.id}`); 
       fetchEspacios(); 
       setEspacioABorrar(null);
-    } catch (error: any) { 
+    } catch {
       throw new Error("No se puede eliminar por integridad de datos");
     }
   };
 
-  const renderEstadoLocal = (estado: string) => {
+  const renderEstadoLocal = (estado: string, enUsoAhora: boolean) => {
     const est = estado ? estado.toUpperCase() : "DESCONOCIDO";
     if (est === "DISPONIBLE") {
+      if (enUsoAhora) {
+        return <span className="rounded-full border border-red-200 bg-red-100 px-3 py-1 text-xs font-bold text-red-800">Ocupado</span>;
+      }
       return <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200">🟢 Disponible</span>;
     }
     if (est === "MANTENCION") {
@@ -135,9 +62,6 @@ const EspaciosPage = () => {
     );
   }
 
-  const rolActivo = localStorage.getItem("activeRole") || "";
-  const isAdminArea = ["ADMIN", "DIRECTOR", "COORDINADOR"].includes(rolActivo.toUpperCase());
-
   if (!isAdminArea) {
     return <Navigate to="/solicitar-reserva" replace />;
   }
@@ -147,20 +71,29 @@ const EspaciosPage = () => {
     <>
 
       <div className="flex flex-col gap-6">
-        <div className="flex justify-end">
+        <div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-bold text-slate-800">Plano 3D del CITT</h2>
+            <a href="#espacios-registrados" className="text-sm font-semibold text-[#003b73] underline">Ir a la tabla de espacios</a>
+          </div>
+          <VistaOcupacionCitt consulta={consulta} actualizar={fetchEspacios} />
+        </div>
+
+        <div id="espacios-registrados" className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-bold text-slate-800">Espacios registrados</h2>
           <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm shadow-sm cursor-pointer">
             <Plus className="w-4 h-4" /> Agregar Espacio
           </button>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
           <TablaDatos columnas={["CÓDIGO", "NOMBRE", "CAPACIDAD", "ESTADO", "ACCIONES"]}>
             {espacios.map((e) => (
               <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50">
                 <td className="p-5 font-medium text-gray-600">ESP-{e.id.toString().padStart(3, '0')}</td>
                 <td className="p-5 font-bold text-gray-800">{e.nombre}</td>
                 <td className="p-5 text-gray-600">{e.capacidad} pers.</td>
-                <td className="p-5">{renderEstadoLocal(e.estado)}</td>
+                <td className="p-5">{renderEstadoLocal(e.estado, e.enUsoAhora)}</td>
                 <td className="p-5 flex gap-3">
                   <button onClick={() => setEspacioEstado(e)} className="text-amber-500 hover:text-amber-700" title="Gestionar Estado">
                     <AlertTriangle size={18} />

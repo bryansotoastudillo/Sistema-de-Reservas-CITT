@@ -21,6 +21,14 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
 
     List<Solicitud> findByEstadoSolicitud(EstadoSolicitud estado);
 
+    @Query("""
+            SELECT s FROM Solicitud s JOIN FETCH s.espacio
+            WHERE s.estadoSolicitud.nombre IN ('EN PROCESO', 'ATRASADO')
+               OR (s.estadoSolicitud.nombre = 'APROBADA'
+                   AND s.fecha = :fecha AND s.horaInicio <= :hora AND s.horaFin > :hora)
+            """)
+    List<Solicitud> findOcupacionesActuales(@Param("fecha") LocalDate fecha, @Param("hora") LocalTime hora);
+
     // Consulta para verificar si un espacio ya está reservado en un horario específico
     @Query("SELECT COUNT(s) FROM Solicitud s WHERE s.espacio.id = :idEspacio " +
             "AND s.fecha = :fecha " +
