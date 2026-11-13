@@ -307,7 +307,7 @@ export const FormularioSolicitudPage: React.FC = () => {
               >
                 <option value="">Sin espacio seleccionado (Solo préstamo)</option>
                 {espaciosDisponibles.map(esp => (
-                  <option key={esp.id} value={esp.id}>{esp.nombre}</option>
+                  <option key={esp.id} value={esp.id}>{esp.id === state?.idEspacio ? state.nombreEspacio || esp.nombre : esp.nombre}</option>
                 ))}
                 {/* Si venía un espacio preseleccionado pero no está en la lista de disponibles, forzamos mostrarlo */}
                 {idEspacioLocal && !espaciosDisponibles.some(e => e.id === idEspacioLocal) && state?.nombreEspacio && (
@@ -461,7 +461,8 @@ export const FormularioSolicitudPage: React.FC = () => {
                       <MapPin size={20} />
                     </div>
                     <span className="font-bold text-gray-700">
-                      {espaciosDisponibles.find(e => e.id === idEspacioLocal)?.nombre || state?.nombreEspacio || "Espacio Seleccionado"}
+                      {(idEspacioLocal === state?.idEspacio && state.nombreEspacio)
+                        || espaciosDisponibles.find(esp => esp.id === idEspacioLocal)?.nombre || "Espacio seleccionado"}
                     </span>
                   </div>
                 </div>

@@ -21,6 +21,7 @@ type Zona = {
   clave: string;
   nombre: string;
   alias?: string;
+  otrosNombres?: readonly string[];
   base: Punto[];
   marcador: Punto;
   alturaMarcador?: number;
@@ -140,6 +141,7 @@ export const zonasCitt: Zona[] = [
   },
   {
     clave: "MR", nombre: "Mesa de Reunión", alias: "Sala Reuniones",
+    otrosNombres: ["Sala Reunión", "Sala de Reunión", "Sala de Reuniones", "Mesa Reunión", "Mesa Reuniones"],
     base: rectangulo(22, 179, 100, 137),
     marcador: [73, 245],
     muebles: [
