@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { ResumenRecursosCowork, type RecursoCowork } from "../componentes/RecursosCowork";
 import {
   FileText,
   ClipboardList,
@@ -51,6 +52,7 @@ interface SolicitudDTO {
   articulosAsignados?: ArticuloAsignadoDTO[];
   registroAutogestion?: string;
   destinoExterno?: string;
+  recursosCowork?: RecursoCowork[];
 }
 
 interface ArticuloDTO {
@@ -452,6 +454,7 @@ export const SolicitudesPage: React.FC = () => {
                               Uso externo: {s.destinoExterno}
                             </span>
                           )}
+                          <ResumenRecursosCowork recursos={s.recursosCowork} />
                           <div className="flex flex-wrap gap-1">
                             {s.nombresArticulos && s.nombresArticulos.length > 0 ? (
                               s.nombresArticulos.map((art, i) => (
