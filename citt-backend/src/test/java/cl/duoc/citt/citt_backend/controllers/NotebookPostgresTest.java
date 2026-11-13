@@ -7,6 +7,9 @@ import cl.duoc.citt.citt_backend.repositories.CategoriaRepository;
 import cl.duoc.citt.citt_backend.repositories.EstadoArticuloRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import java.sql.Timestamp;
+import java.time.temporal.ChronoUnit;
+import cl.duoc.citt.citt_backend.services.NotebookMonitoreadoService;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -34,6 +37,7 @@ class NotebookPostgresTest {
     @Autowired ArticuloRepository articulos;
     @Autowired CategoriaRepository categorias;
     @Autowired EstadoArticuloRepository estados;
+    @Autowired NotebookMonitoreadoService monitoreo;
 
     @Test
     void recibeReportesYUbicacionSoloDuranteUnPrestamoExterno() throws Exception {
@@ -80,6 +84,10 @@ class NotebookPostgresTest {
                                 {"prestamoExterno":%d,"observada":"%s","latitud":30,"longitud":15,"precisionMetros":20}
                                 """.formatted(solicitud, Instant.now())))
                 .andExpect(status().isNoContent());
+        sql.update("""
+                insert into notebook_ubicacion (notebook_id, solicitud_id, observada, latitud, longitud, precision_metros)
+                select id, ?, ?, 31, 15, 20 from notebook_monitoreado where id_articulo = ?
+                """, solicitud, Timestamp.from(Instant.now().minus(31, ChronoUnit.DAYS)), articuloId);
         mvc.perform(get("/api/notebooks").with(user("direccion").roles("DIRECTOR")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].estadoInventario").value("PRESTADO"))
@@ -100,5 +108,13 @@ class NotebookPostgresTest {
                 .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].prestamo.estado").value("DEVUELTO"))
                 .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].prestamo.condicion").value("Con daño registrado"))
                 .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].reporte.ubicacion").doesNotExist());
+        mvc.perform(get("/api/notebooks/{id}/ubicaciones", articuloId).with(user("direccion").roles("DIRECTOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lecturas.length()").value(1))
+                .andExpect(jsonPath("$.lecturas[0].solicitud").value(solicitud.intValue()))
+                .andExpect(jsonPath("$.lecturas[0].ubicacion.latitud").value(30.0));
+        monitoreo.eliminarUbicacionesVencidas();
+        assertThat(sql.queryForObject("select count(*) from notebook_ubicacion where solicitud_id = ?",
+                Integer.class, solicitud)).isEqualTo(1);
     }
 }

@@ -10,10 +10,15 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface NotebookMonitoreadoRepository extends JpaRepository<NotebookMonitoreado, Long> {
+    @Modifying
+    @Query(value = "update notebook_monitoreado set reporte = reporte - 'ubicacion' where reporte -> 'ubicacion' is not null", nativeQuery = true)
+    int eliminarUbicacionAnteriorDelReporte();
+
     String PRESTAMOS_EXTERNOS = """
             from Solicitud s join s.articulos a
             where s.espacio is null and s.destinoExterno is not null and trim(s.destinoExterno) <> ''

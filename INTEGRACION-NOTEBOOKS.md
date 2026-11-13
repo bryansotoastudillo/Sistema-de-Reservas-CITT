@@ -32,7 +32,9 @@ En el notebook institucional piloto, activa los servicios de ubicación de Windo
 
 Una actualización conserva esa opción. Puedes deshabilitarla con `-HabilitarUbicacion:$false` al reinstalar. El agente consulta Windows después de que el servidor confirma que el notebook está entregado en un préstamo externo, incluso si el préstamo está atrasado. Si Windows no entrega una lectura nueva o el equipo está desconectado, el reporte de inventario sigue su flujo habitual y las coordenadas no se encolan.
 
-Para validar el piloto, entrega el notebook en una solicitud de artículos con destino externo. Verifica que **Notebooks** muestre hora, precisión y la última posición con Wi-Fi institucional y luego con otra red, usando la tarea del sistema. La posición solo es visible para Coordinación y Dirección durante ese préstamo. El panel oculta la lectura al registrar la devolución. El servidor conserva como máximo una lectura por equipo y la descarta del reporte cuando llega la siguiente lectura de inventario fuera de ese préstamo. Google Maps recibe las coordenadas si alguien abre el enlace.
+Para validar el piloto, entrega el notebook en una solicitud de artículos con destino externo. Verifica que **Notebooks** muestre la hora, la antigüedad y la precisión de la última posición con Wi-Fi institucional y luego con otra red, usando la tarea del sistema. Si el equipo lleva más de 15 minutos sin reportar o aún no ha enviado su primer reporte, el panel avisa y permite abrir la ficha del préstamo.
+
+Al registrar la devolución, la ubicación deja de aparecer como lectura actual. Coordinación y Dirección pueden consultar las lecturas de préstamos externos en **Historial de 30 días**. Cada lectura vence al cumplir 30 días, sale de las consultas en ese momento y se elimina de la base en la siguiente limpieza programada, que se ejecuta cada cinco minutos. Google Maps recibe las coordenadas si alguien abre el enlace.
 
 ## Lecturas y permisos
 

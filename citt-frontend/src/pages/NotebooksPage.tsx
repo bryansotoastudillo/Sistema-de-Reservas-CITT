@@ -9,6 +9,18 @@ interface Articulo {
   numeroSerie?: string;
 }
 
+interface Ubicacion {
+  latitud: number;
+  longitud: number;
+  precisionMetros: number;
+  observada: string;
+}
+
+interface HistorialUbicaciones {
+  lecturas: { solicitud: number; ubicacion: Ubicacion }[];
+  hayMas: boolean;
+}
+
 interface Notebook {
   idArticulo: number;
   articulo: string;
@@ -27,12 +39,7 @@ interface Notebook {
     condicion: string | null;
     observacion: string | null;
   } | null;
-  ubicacion?: {
-    latitud: number;
-    longitud: number;
-    precisionMetros: number;
-    observada: string;
-  } | null;
+  ubicacion?: Ubicacion | null;
   reporte: {
     equipo: string;
     estado: string;
@@ -47,6 +54,82 @@ const campo = "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm tex
 const accion = "rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50";
 const fecha = new Intl.DateTimeFormat("es-CL", { dateStyle: "short", timeStyle: "short" });
 const metros = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
+const plazoSinReporte = 15 * 60_000;
+const retencionUbicacion = 30 * 24 * 60 * 60_000;
+const relativo = new Intl.RelativeTimeFormat("es-CL");
+
+function antiguedad(valor: string, ahora: number) {
+  const minutos = Math.max(0, Math.floor((ahora - Date.parse(valor)) / 60_000));
+  if (minutos === 0) return "hace menos de un minuto";
+  if (minutos < 60) return relativo.format(-minutos, "minute");
+  if (minutos < 1440) return relativo.format(-Math.floor(minutos / 60), "hour");
+  return relativo.format(-Math.floor(minutos / 1440), "day");
+}
+
+function nombreNotebook(articulo: string) {
+  const numero = articulo.trim().match(/\bCITT(?:-LAP|\s+)(\d{1,3})$/i)?.[1];
+  return numero ? "CITT-LAP" + String(Number(numero)).padStart(2, "0") : articulo;
+}
+
+function enlaceMapa(ubicacion: Ubicacion) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${ubicacion.latitud},${ubicacion.longitud}`)}`;
+}
+
+function HistorialNotebook({ idArticulo, ahora }: { idArticulo: number; ahora: number }) {
+  const [abierto, setAbierto] = useState(false);
+  const [pagina, setPagina] = useState(0);
+  const [historial, setHistorial] = useState<HistorialUbicaciones | null>(null);
+  const [error, setError] = useState(false);
+  const [intento, setIntento] = useState(0);
+  useEffect(() => {
+    if (!abierto) return;
+    const consulta = new AbortController();
+    api.get<HistorialUbicaciones>(`/notebooks/${idArticulo}/ubicaciones`, {
+      params: { pagina }, signal: consulta.signal,
+    }).then(({ data }) => {
+      if (!consulta.signal.aborted) setHistorial(data);
+    }).catch(() => {
+      if (!consulta.signal.aborted) setError(true);
+    });
+    return () => consulta.abort();
+  }, [abierto, idArticulo, pagina, intento]);
+
+  function cambiarPagina(nueva: number) {
+    setHistorial(null);
+    setError(false);
+    setPagina(nueva);
+  }
+
+  const lecturas = historial?.lecturas.filter(({ ubicacion }) =>
+    ahora - Date.parse(ubicacion.observada) < retencionUbicacion);
+  return (
+    <details className="mt-2 text-xs" onToggle={(event) => {
+      const visible = event.currentTarget.open;
+      setAbierto(visible);
+      if (!visible) cambiarPagina(0);
+    }}>
+      <summary className="cursor-pointer text-blue-800">Historial de 30 días</summary>
+      {abierto && <div className="mt-2 space-y-2">
+        {error ? <button type="button" className="underline" onClick={() => {
+          setError(false);
+          setIntento(valor => valor + 1);
+        }}>Reintentar cargar historial</button> : !historial ? <p>Cargando historial…</p> :
+          lecturas?.length ? <ul className="max-h-48 space-y-2 overflow-auto">
+            {lecturas.map(({ solicitud, ubicacion }) => <li key={`${solicitud}-${ubicacion.observada}`}>
+              <a href={enlaceMapa(ubicacion)} target="_blank" rel="noopener noreferrer" className="text-blue-800 underline">
+                {fecha.format(new Date(ubicacion.observada))} · ±{metros.format(ubicacion.precisionMetros)} m
+              </a>
+              <span className="block">Solicitud #{solicitud}</span>
+            </li>)}
+          </ul> : <p>Sin ubicaciones en esta página.</p>}
+        <div className="flex gap-3">
+          {pagina > 0 && <button type="button" onClick={() => cambiarPagina(pagina - 1)} className="underline">Anterior</button>}
+          {historial?.hayMas && <button type="button" onClick={() => cambiarPagina(pagina + 1)} className="underline">Siguiente</button>}
+        </div>
+      </div>}
+    </details>
+  );
+}
 const fechaPrestamo = (valor: string) => {
   const [dia, hora] = valor.split("T");
   return dia.split("-").reverse().join("/") + " · " + hora.slice(0, 5);
@@ -67,6 +150,7 @@ const eventosEnergia: Record<string, string> = {
 function VistaNotebooks() {
   const [equipos, setEquipos] = useState<Notebook[]>([]);
   const [version, setVersion] = useState(0);
+  const [ahora, setAhora] = useState(() => Date.now());
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
@@ -77,7 +161,10 @@ function VistaNotebooks() {
   const [generando, setGenerando] = useState(false);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setVersion(v => v + 1), 30_000);
+    const timer = window.setInterval(() => {
+      setAhora(Date.now());
+      setVersion(v => v + 1);
+    }, 30_000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -185,6 +272,18 @@ function VistaNotebooks() {
         {cargando && <p className="px-5 pb-5 text-sm text-slate-600">Cargando notebooks…</p>}
         {!cargando && !error && !equipos.length &&
           <p className="px-5 pb-5 text-sm text-slate-600">Todavía no hay notebooks vinculados.</p>}
+        {equipos.filter((equipo) => equipo.prestamoExterno && (!equipo.observado
+          || ahora - Date.parse(equipo.observado) > plazoSinReporte)).map((equipo) => (
+          <p key={equipo.idArticulo} className="mx-5 mb-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+            <a href={`#prestamo-notebook-${equipo.idArticulo}`} className="font-semibold underline"
+              onClick={() => {
+                const ficha = document.getElementById(`prestamo-notebook-${equipo.idArticulo}`);
+                if (ficha instanceof HTMLDetailsElement) ficha.open = true;
+              }}>{nombreNotebook(equipo.articulo)}</a>
+            {equipo.observado ? " lleva más de 15 minutos sin reportar durante un préstamo externo."
+              : " está en préstamo externo y todavía no tiene reportes."}
+          </p>
+        ))}
         {!!equipos.length && <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-600">
@@ -196,7 +295,7 @@ function VistaNotebooks() {
                 const numeroCitt = articulo.trim().match(/\bCITT(?:-LAP|\s+)(\d{1,3})$/i)?.[1];
                 const nombreEquipo = numeroCitt ? "CITT-LAP" + String(Number(numeroCitt)).padStart(2, "0") : "Sin número asignado";
                 const lectura = observado ? new Date(observado) : null;
-                const reciente = lectura && Date.now() - lectura.getTime() <= 600_000;
+                const reciente = lectura && ahora - lectura.getTime() <= 600_000;
                 const bateria = reporte?.bateria;
                 const ejecuciones = new Map(reporte?.uso_programas?.map(uso =>
                   [uso.nombre.toLowerCase(), uso.ultima_ejecucion]));
@@ -204,7 +303,7 @@ function VistaNotebooks() {
                   <td className="px-5 py-4 font-semibold text-slate-900">
                     {nombreEquipo}
                     <span className="block text-xs font-normal text-slate-600">{codigoDuoc || "Inventario #" + idArticulo}</span>
-                    {prestamo ? <details className="mt-2 font-normal">
+                    {prestamo ? <details id={`prestamo-notebook-${idArticulo}`} className="mt-2 font-normal">
                       <summary className="cursor-pointer whitespace-nowrap text-blue-800">
                         Ficha de préstamo
                         {prestamo.estado === "ATRASADO" && <span className="ml-1 font-semibold text-red-700"> · Atrasado</span>}
@@ -221,7 +320,7 @@ function VistaNotebooks() {
                           <dd>{prestamo.condicion}{prestamo.observacion && <span className="block">{prestamo.observacion}</span>}</dd>
                         </div>}
                       </dl>
-                    </details> : <span className="mt-2 block text-xs font-normal text-slate-600">Sin préstamo registrado</span>}
+                    </details> : <span id={`prestamo-notebook-${idArticulo}`} className="mt-2 block text-xs font-normal text-slate-600">Sin préstamo registrado</span>}
                   </td>
                   <td className="px-5 py-4">{estadoInventario}</td>
                   <td className="whitespace-nowrap px-5 py-4">
@@ -245,15 +344,20 @@ function VistaNotebooks() {
                     </details>}
                   </td>
                   <td className="px-5 py-4 text-sm">
-                    {prestamoExterno ? ubicacion ? <>
+                    {prestamoExterno ? ubicacion && ahora - Date.parse(ubicacion.observada) < retencionUbicacion ? <>
                       <a className="font-semibold text-blue-800 underline"
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${ubicacion.latitud},${ubicacion.longitud}`)}`}
+                        href={enlaceMapa(ubicacion)}
                         target="_blank" rel="noopener noreferrer">Última ubicación en Google Maps</a>
                       <span className="mt-1 block text-xs text-slate-600">
+                        {ahora - Date.parse(ubicacion.observada) <= plazoSinReporte ? "Actualizada " : "Última lectura "}
+                        {antiguedad(ubicacion.observada, ahora)}
+                      </span>
+                      <span className="block text-xs text-slate-600">
                         {fecha.format(new Date(ubicacion.observada))} · ±{metros.format(ubicacion.precisionMetros)} m
                       </span>
-                    </> : <span className="text-slate-600">Sin ubicación recibida</span>
+                    </> : <span className="text-slate-600">Aún sin ubicación</span>
                       : <span className="text-slate-600">Sin préstamo externo activo</span>}
+                    <HistorialNotebook idArticulo={idArticulo} ahora={ahora} />
                   </td>
                   <td className="px-5 py-4">{reporte ? <details>
                     <summary className="cursor-pointer text-blue-800">{reporte.programas.length} registrados</summary>

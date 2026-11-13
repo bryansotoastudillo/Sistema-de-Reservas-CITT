@@ -1,7 +1,9 @@
 package cl.duoc.citt.citt_backend.services;
 
 import cl.duoc.citt.citt_backend.model.NotebookMonitoreado;
+import cl.duoc.citt.citt_backend.model.NotebookUbicacion;
 import cl.duoc.citt.citt_backend.repositories.NotebookMonitoreadoRepository;
+import cl.duoc.citt.citt_backend.repositories.NotebookUbicacionRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -9,11 +11,13 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Arrays;
 import java.util.HexFormat;
@@ -22,7 +26,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -34,9 +40,14 @@ public class NotebookMonitoreadoService {
     private static final Set<String> ESTADOS = Set.of("encendido", "suspendido", "apagado", "desconocido");
     private static final Set<String> EVENTOS = Set.of("inicio", "apagado", "suspension", "reanudacion");
     private final NotebookMonitoreadoRepository repositorio;
+    private final NotebookUbicacionRepository ubicaciones;
+    private static final Duration RETENCION_UBICACION = Duration.ofDays(30);
 
     public record Credencial(String identificador, String clave, String ruta_reportes) {}
     public record Ubicacion(double latitud, double longitud, double precisionMetros, Instant observada) {}
+    public record LecturaUbicacion(Long solicitud, Ubicacion ubicacion) {}
+    public record HistorialUbicaciones(List<LecturaUbicacion> lecturas, boolean hayMas) {}
+    private record PrestamoUbicado(Long notebook, Long solicitud) {}
     public record Prestamo(Long solicitud, String estado, String solicitante, LocalDateTime vence,
                            LocalDateTime devuelto, String condicion, String observacion) {}
     public record Equipo(Long idArticulo, String articulo, String codigoDuoc, String numeroSerie,
@@ -70,24 +81,21 @@ public class NotebookMonitoreadoService {
         var fichas = repositorio.listarUltimosPrestamos().stream()
                 .collect(Collectors.toMap(NotebookMonitoreadoRepository.PrestamoNotebook::getArticuloId,
                         p -> ficha(p, ahora)));
+        var ultimas = ubicaciones.listarUltimas(limiteHistorial()).stream()
+                .collect(Collectors.toMap(u -> new PrestamoUbicado(u.getNotebook().getId(), u.getSolicitudId()),
+                        NotebookMonitoreadoService::lectura));
         return repositorio.listarConArticulo().stream().map(n -> {
             var a = n.getArticulo();
             Long prestamo = prestamos.get(a.getIdArticulo());
             JsonNode reporte = n.getReporte();
-            Ubicacion ubicacion = null;
-            if (reporte instanceof ObjectNode objeto) {
+            if (reporte instanceof ObjectNode objeto && objeto.has("ubicacion")) {
                 ObjectNode publico = objeto.deepCopy();
-                JsonNode lectura = publico.remove("ubicacion");
-                if (ubicacionDelPrestamo(lectura, prestamo)) {
-                    ubicacion = new Ubicacion(lectura.path("latitud").doubleValue(),
-                            lectura.path("longitud").doubleValue(), lectura.path("precisionMetros").doubleValue(),
-                            Instant.parse(lectura.path("observada").asText()));
-                }
+                publico.remove("ubicacion");
                 reporte = publico;
             }
             return new Equipo(a.getIdArticulo(), a.getNombreArticulo(), a.getCodigoDuoc(), a.getNumeroSerie(),
                     a.getEstadoArticulo().getNombreEstado(), n.getRecibido(), n.getObservado(), reporte,
-                    prestamo != null, ubicacion, fichas.get(a.getIdArticulo()));
+                    prestamo != null, ultimas.get(new PrestamoUbicado(n.getId(), prestamo)), fichas.get(a.getIdArticulo()));
         }).toList();
     }
 
@@ -121,8 +129,6 @@ public class NotebookMonitoreadoService {
         if (observado.isAfter(recibido.plusSeconds(300))) throw invalido("Revisa la hora del notebook");
         Long prestamo = repositorio.buscarPrestamoExterno(notebook.getArticulo().getIdArticulo()).orElse(null);
         if (notebook.getObservado() != null && !observado.isAfter(notebook.getObservado())) return null;
-        JsonNode ubicacionAnterior = notebook.getReporte() == null ? null : notebook.getReporte().path("ubicacion");
-        if (ubicacionDelPrestamo(ubicacionAnterior, prestamo)) reporte.set("ubicacion", ubicacionAnterior);
         notebook.setReporte(reporte);
         notebook.setObservado(observado);
         notebook.setRecibido(recibido);
@@ -135,12 +141,13 @@ public class NotebookMonitoreadoService {
         Long prestamo = repositorio.buscarPrestamoExterno(notebook.getArticulo().getIdArticulo()).orElse(null);
         JsonNode solicitud = datos.path("prestamoExterno");
         if (prestamo == null || !solicitud.isIntegralNumber() || !solicitud.canConvertToLong()
-                || !Objects.equals(prestamo, solicitud.longValue()) || !(notebook.getReporte() instanceof ObjectNode reporte)) {
+                || !Objects.equals(prestamo, solicitud.longValue()) || notebook.getReporte() == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "El préstamo externo no está activo");
         }
         Instant observada;
         try {
-            observada = OffsetDateTime.parse(texto(datos.path("observada"), 60, "Fecha de ubicación")).toInstant();
+            observada = OffsetDateTime.parse(texto(datos.path("observada"), 60, "Fecha de ubicación"))
+                    .toInstant().truncatedTo(ChronoUnit.MICROS);
         } catch (DateTimeParseException e) {
             throw invalido("La fecha de ubicación debe incluir zona horaria");
         }
@@ -151,14 +158,33 @@ public class NotebookMonitoreadoService {
         double latitud = coordenada(datos.path("latitud"), -90, 90);
         double longitud = coordenada(datos.path("longitud"), -180, 180);
         double precision = coordenada(datos.path("precisionMetros"), 1, 100_000);
-        JsonNode anterior = reporte.path("ubicacion");
-        if (ubicacionDelPrestamo(anterior, prestamo)
-                && !observada.isAfter(Instant.parse(anterior.path("observada").asText()))) return;
-        ObjectNode actualizado = reporte.deepCopy();
-        actualizado.putObject("ubicacion").put("prestamoExterno", prestamo)
-                .put("latitud", latitud).put("longitud", longitud).put("precisionMetros", precision)
-                .put("observada", observada.toString());
-        notebook.setReporte(actualizado);
+        var anterior = ubicaciones.findFirstByNotebookIdAndSolicitudIdOrderByObservadaDesc(notebook.getId(), prestamo);
+        if (anterior.isPresent() && !observada.isAfter(anterior.get().getObservada())) return;
+        ubicaciones.save(new NotebookUbicacion(null, notebook, prestamo, observada, latitud, longitud, precision));
+    }
+
+    @Transactional(readOnly = true)
+    public HistorialUbicaciones historialUbicaciones(Long articuloId, int pagina) {
+        if (pagina < 0 || pagina > 100_000) throw invalido("Página inválida");
+        var lecturas = ubicaciones.findByNotebookArticuloIdArticuloAndNotebookArticuloEliminadoFalseAndObservadaAfterOrderByObservadaDescIdDesc(
+                articuloId, limiteHistorial(), PageRequest.of(pagina, 25));
+        return new HistorialUbicaciones(lecturas.map(u -> new LecturaUbicacion(u.getSolicitudId(), lectura(u))).getContent(),
+                lecturas.hasNext());
+    }
+
+    @Scheduled(fixedDelay = 300_000, initialDelay = 30_000)
+    @Transactional
+    public void eliminarUbicacionesVencidas() {
+        ubicaciones.eliminarVencidas(limiteHistorial());
+        repositorio.eliminarUbicacionAnteriorDelReporte();
+    }
+
+    private static Instant limiteHistorial() {
+        return Instant.now().minus(RETENCION_UBICACION);
+    }
+
+    private static Ubicacion lectura(NotebookUbicacion u) {
+        return new Ubicacion(u.getLatitud(), u.getLongitud(), u.getPrecisionMetros(), u.getObservada());
     }
 
     private NotebookMonitoreado autenticar(String autorizacion) {
@@ -167,10 +193,6 @@ public class NotebookMonitoreadoService {
                 .orElseThrow(NotebookMonitoreadoService::sinCredencial);
         if (notebook.getArticulo() == null || notebook.getArticulo().isEliminado()) throw sinCredencial();
         return notebook;
-    }
-
-    private static boolean ubicacionDelPrestamo(JsonNode ubicacion, Long prestamo) {
-        return prestamo != null && ubicacion != null && ubicacion.path("prestamoExterno").asLong() == prestamo;
     }
 
     private static double coordenada(JsonNode valor, double minimo, double maximo) {

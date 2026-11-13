@@ -3,7 +3,9 @@ package cl.duoc.citt.citt_backend.controllers;
 import cl.duoc.citt.citt_backend.model.Articulo;
 import cl.duoc.citt.citt_backend.model.EstadoArticulo;
 import cl.duoc.citt.citt_backend.model.NotebookMonitoreado;
+import cl.duoc.citt.citt_backend.model.NotebookUbicacion;
 import cl.duoc.citt.citt_backend.repositories.NotebookMonitoreadoRepository;
+import cl.duoc.citt.citt_backend.repositories.NotebookUbicacionRepository;
 import cl.duoc.citt.citt_backend.security.JwtFiltroAutenticacion;
 import cl.duoc.citt.citt_backend.security.JwtUtilidades;
 import cl.duoc.citt.citt_backend.security.SecurityConfig;
@@ -40,6 +42,7 @@ class NotebookMonitoreadoControllerTest {
     private static final String TOKEN = "Bearer " + "a".repeat(43);
     @Autowired MockMvc mvc;
     @MockitoBean NotebookMonitoreadoRepository repositorio;
+    @MockitoBean NotebookUbicacionRepository ubicaciones;
     @MockitoBean JwtUtilidades jwt;
     @MockitoBean UserDetailsService usuarios;
     @MockitoBean AuthenticationProvider proveedor;
@@ -114,6 +117,8 @@ class NotebookMonitoreadoControllerTest {
         mvc.perform(post(UBICACION).header("Authorization", TOKEN).contentType(MediaType.APPLICATION_JSON)
                         .content(ubicacion(70, fecha, 30)))
                 .andExpect(status().isNoContent());
+        when(ubicaciones.listarUltimas(org.mockito.ArgumentMatchers.any())).thenReturn(List.of(
+                new NotebookUbicacion(1L, notebook, 70L, fecha, 30, 15, 30)));
         mvc.perform(post(REPORTES).header("Authorization", TOKEN).contentType(MediaType.APPLICATION_JSON)
                         .content(reporte(fecha.plusSeconds(1), 77)))
                 .andExpect(status().isOk());
@@ -141,6 +146,8 @@ class NotebookMonitoreadoControllerTest {
     @Test
     void soloCoordinacionYDireccionPuedenConsultar() throws Exception {
         mvc.perform(get("/api/notebooks").with(user("alumno").roles("ALUMNO")))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/notebooks/30/ubicaciones").with(user("alumno").roles("ALUMNO")))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/notebooks").with(user("direccion").roles("DIRECTOR")))
                 .andExpect(status().isOk());

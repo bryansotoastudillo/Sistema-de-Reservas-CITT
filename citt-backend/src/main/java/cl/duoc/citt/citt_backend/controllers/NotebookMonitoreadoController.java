@@ -33,6 +33,14 @@ public class NotebookMonitoreadoController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(servicio.listar());
     }
 
+    @GetMapping("/{articuloId}/ubicaciones")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'DIRECTOR')")
+    public ResponseEntity<NotebookMonitoreadoService.HistorialUbicaciones> historialUbicaciones(
+            @PathVariable Long articuloId, @RequestParam(defaultValue = "0") int pagina) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(servicio.historialUbicaciones(articuloId, pagina));
+    }
+
     @PostMapping(value = "/{articuloId}/credencial", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAnyRole('COORDINADOR', 'DIRECTOR')")
     public ResponseEntity<NotebookMonitoreadoService.Credencial> emitir(
