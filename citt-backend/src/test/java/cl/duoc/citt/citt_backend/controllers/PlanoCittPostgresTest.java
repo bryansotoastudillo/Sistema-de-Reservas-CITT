@@ -30,7 +30,7 @@ class PlanoCittPostgresTest {
         sql.update("delete from distribucion_plano_citt where id = 1");
         var coordinacion = user("coordinacion").roles("COORDINADOR");
         String cambios = """
-                {"revision":0,"posiciones":{"MR":{"x":12,"y":7},"P2":{"x":-9,"y":17}}}
+                {"revision":0,"posiciones":{"MR":{"x":12,"y":7},"P2":{"x":-9,"y":17,"giro":15}}}
                 """;
         mvc.perform(put(RUTA).with(user("alumno").roles("ALUMNO"))
                         .contentType(MediaType.APPLICATION_JSON).content(cambios))
@@ -47,6 +47,7 @@ class PlanoCittPostgresTest {
         mvc.perform(get(RUTA).with(user("direccion").roles("DIRECTOR")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.posiciones.MR.x").value(12))
-                .andExpect(jsonPath("$.posiciones.P2.y").value(17));
+                .andExpect(jsonPath("$.posiciones.P2.y").value(17))
+                .andExpect(jsonPath("$.posiciones.P2.giro").value(15));
     }
 }

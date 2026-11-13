@@ -1,5 +1,20 @@
 export type Punto = readonly [number, number];
 
+export type PosicionPlano = { x: number; y: number; giro?: number | null };
+export type PosicionesPlano = Record<string, PosicionPlano>;
+
+export function transformarObjeto(base: Punto[], { x, y, giro }: PosicionPlano) {
+  const cx = base.reduce((suma, punto) => suma + punto[0], 0) / base.length;
+  const cy = base.reduce((suma, punto) => suma + punto[1], 0) / base.length;
+  const radianes = (giro ?? 0) * Math.PI / 180;
+  const coseno = Math.cos(radianes);
+  const seno = Math.sin(radianes);
+  return ([px, py]: Punto): Punto => [
+    cx + x + (px - cx) * coseno - (py - cy) * seno,
+    cy + y + (px - cx) * seno + (py - cy) * coseno,
+  ];
+}
+
 export function rectangulo(x: number, y: number, ancho: number, fondo: number): Punto[] {
   return [[x, y], [x + ancho, y], [x + ancho, y + fondo], [x, y + fondo]];
 }

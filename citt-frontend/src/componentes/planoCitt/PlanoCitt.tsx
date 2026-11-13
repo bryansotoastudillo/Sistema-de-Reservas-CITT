@@ -1,6 +1,6 @@
 import { useId, useMemo, useRef } from "react";
-import { mobiliarioComun, murosCitt, pisoCitt, pizarrasCitt, referenciasCitt, rectangulo, zonasCitt } from "./geometriaCitt";
-import type { Punto } from "./geometriaCitt";
+import { mobiliarioComun, murosCitt, pisoCitt, pizarrasCitt, referenciasCitt, rectangulo, transformarObjeto, zonasCitt } from "./geometriaCitt";
+import type { PosicionesPlano } from "./geometriaCitt";
 import { Mueble3D, Prisma } from "./escenaCitt";
 import { crearCamara, puntos } from "./camaraCitt";
 import { estadosPlano } from "./estadosPlano";
@@ -18,8 +18,6 @@ type Props = {
   onMover: (clave: string, dx: number, dy: number) => void;
 };
 
-export type PosicionesPlano = Record<string, { x: number; y: number }>;
-
 export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion, onGirar, posiciones, editar, onMover }: Props) {
   const id = useId();
   const clipPiso = `${id}-piso`;
@@ -29,15 +27,17 @@ export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion
   const camara = useMemo(() => crearCamara(angulo, inclinacion), [angulo, inclinacion]);
   const gesto = useRef<{ id: number; x: number; y: number; activo: boolean; clave?: string } | null>(null);
   const objetos = [...zonasCitt, ...pizarrasCitt].map((objeto) => {
-    const desplazamiento = posiciones[objeto.clave];
-    const mover = ([x, y]: Punto): Punto => [x + (desplazamiento?.x ?? 0), y + (desplazamiento?.y ?? 0)];
+    const mover = transformarObjeto(objeto.base, posiciones[objeto.clave] ?? { x: 0, y: 0 });
     return {
       ...objeto,
-      base: objeto.base.map(mover),
-      muebles: objeto.muebles.map((mueble) => ({ ...mueble, base: mueble.base.map(mover) })),
-      marcador: objeto.marcador ? mover(objeto.marcador) : undefined,
+      camara: {
+        ...camara,
+        proyectar: (punto: Parameters<typeof mover>[0], altura?: number) => camara.proyectar(mover(punto), altura),
+        profundidad: (base: typeof objeto.base) => camara.profundidad(base.map(mover)),
+        caraVisible: (a: Parameters<typeof mover>[0], b: Parameters<typeof mover>[0]) => camara.caraVisible(mover(a), mover(b)),
+      },
     };
-  }).sort((a, b) => camara.profundidad(a.base) - camara.profundidad(b.base));
+  }).sort((a, b) => a.camara.profundidad(a.base) - b.camara.profundidad(b.base));
   return (
     <svg viewBox="0 0 1070 652" className={`block h-auto w-full select-none ${editar ? "touch-none cursor-move" : "cursor-grab active:cursor-grabbing"}`}
       role="group" aria-label="Plano tridimensional del CITT Valparaíso"
@@ -125,6 +125,7 @@ export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion
         })}
       </g>
       {objetos.map((zona) => {
+        const camara = zona.camara;
         if (!zona.marcador) return (
           <g key={zona.clave} data-objeto-plano={zona.clave}
             role={editar ? "button" : undefined} tabIndex={editar ? 0 : undefined}

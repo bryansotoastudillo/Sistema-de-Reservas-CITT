@@ -5,10 +5,10 @@ import { Link } from "react-router-dom";
 import api from "../../api/axiosConfig";
 import type { ConsultaEspacios, Espacio } from "../../hooks/useOcupacionEspacios";
 import { PlanoCitt } from "./PlanoCitt";
-import type { PosicionesPlano } from "./PlanoCitt";
 import { estadosPlano } from "./estadosPlano";
 import type { EstadoPlano } from "./estadosPlano";
-import { pizarrasCitt, zonasCitt } from "./geometriaCitt";
+import { pizarrasCitt, transformarObjeto, zonasCitt } from "./geometriaCitt";
+import type { PosicionesPlano } from "./geometriaCitt";
 
 const ANGULO_INICIAL = 25;
 const INCLINACION_INICIAL = 44;
@@ -62,18 +62,21 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
     return () => consulta.abort();
   }, [intentoPlano]);
 
-  function mover(clave: string, dx: number, dy: number) {
+  function mover(clave: string, dx: number, dy: number, grados = 0) {
     const objeto = objetosEditables.find((valor) => valor.clave === clave);
     if (!objeto || guardando) return;
     const puntos = [...objeto.base, ...objeto.muebles.flatMap((mueble) => mueble.base)];
-    const xs = puntos.map(([x]) => x);
-    const ys = puntos.map(([, y]) => y);
     setBorrador((actual) => {
       if (!actual) return actual;
       const anterior = actual[clave] ?? { x: 0, y: 0 };
+      const giro = ((anterior.giro ?? 0) + grados + 360) % 360;
+      const girados = puntos.map(transformarObjeto(objeto.base, { x: 0, y: 0, giro }));
+      const xs = girados.map(([x]) => x);
+      const ys = girados.map(([, y]) => y);
       return { ...actual, [clave]: {
         x: Math.min(767 - Math.max(...xs), Math.max(-Math.min(...xs), anterior.x + dx)),
         y: Math.min(484 - Math.max(...ys), Math.max(-Math.min(...ys), anterior.y + dy)),
+        giro,
       } };
     });
   }
@@ -237,6 +240,16 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
                   disabled={guardando} onClick={() => mover(seleccion, x, y)}
                   className="rounded-lg border border-slate-300 p-2 hover:bg-slate-50"><Icono size={16} aria-hidden="true" /></button>
               ))}
+              <button type="button" disabled={guardando} onClick={() => mover(seleccion, 0, 0, -15)}
+                aria-label="Girar objeto a la izquierda" title="Girar objeto 15° a la izquierda"
+                className="rounded-lg border border-slate-300 p-2 hover:bg-slate-50">
+                <RotateCcw size={16} aria-hidden="true" />
+              </button>
+              <button type="button" disabled={guardando} onClick={() => mover(seleccion, 0, 0, 15)}
+                aria-label="Girar objeto a la derecha" title="Girar objeto 15° a la derecha"
+                className="rounded-lg border border-slate-300 p-2 hover:bg-slate-50">
+                <RotateCw size={16} aria-hidden="true" />
+              </button>
             </div>}
           </>}
           {!editar && zonaSeleccionada && (

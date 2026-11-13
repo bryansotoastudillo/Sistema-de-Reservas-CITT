@@ -23,7 +23,7 @@ public class PlanoCittController {
     private final JdbcTemplate sql;
     private final ObjectMapper json;
 
-    public record Posicion(Double x, Double y) {}
+    public record Posicion(Double x, Double y, Double giro) {}
     public record Distribucion(long revision, Map<String, Posicion> posiciones) {}
 
     @GetMapping
@@ -38,7 +38,8 @@ public class PlanoCittController {
         var posiciones = distribucion.posiciones();
         if (distribucion.revision() < 0 || distribucion.revision() == Long.MAX_VALUE || posiciones == null
                 || !CLAVES.containsAll(posiciones.keySet()) || posiciones.values().stream().anyMatch(
-                        p -> p == null || !valida(p.x(), 786) || !valida(p.y(), 484))) {
+                        p -> p == null || !valida(p.x(), 786) || !valida(p.y(), 484)
+                                || (p.giro() != null && (!Double.isFinite(p.giro()) || p.giro() < 0 || p.giro() >= 360)))) {
             throw new ReglaNegocioException("Distribución del plano inválida");
         }
         long revision = distribucion.revision();
