@@ -187,13 +187,17 @@ export const referenciasCitt = [
 
 const moduloSofa = (x: number, y: number, ancho: number, fondo: number) =>
   rectangulo(x, y, ancho, fondo).map(([u, v]): Punto =>
-    [621 - v, 419 + u]);
+    [621 - v, 344 + u]);
+
+const largoSofa = 137;
+const anchoCojinSofa = 22.5;
 
 export const mobiliarioComun: Mueble[] = [
   // Respaldo junto al límite con el Maker, con los cojines mirando al Ring de ideas.
-  pieza(moduloSofa(0, 0, 62, 27), 12, naranja, 4),
-  pieza(moduloSofa(0, 0, 62, 6), 32, naranja, 12),
-  ...[1, 21, 41].map((x) => pieza(moduloSofa(x, 6, 19, 20), 17, naranja, 12)),
+  pieza(moduloSofa(0, 0, largoSofa, 27), 12, naranja, 4),
+  pieza(moduloSofa(0, 0, largoSofa, 6), 32, naranja, 12),
+  ...Array.from({ length: 6 }, (_, i) =>
+    pieza(moduloSofa(1 + i * anchoCojinSofa, 6, anchoCojinSofa - 1, 20), 17, naranja, 12)),
   pieza(rectangulo(563, 402, 24, 17), 14, blanco),
   pieza(rectangulo(636, 253, 19, 130), 26, blanco),
   pieza(rectangulo(638, 272, 15, 20), 42, marco, 26),
