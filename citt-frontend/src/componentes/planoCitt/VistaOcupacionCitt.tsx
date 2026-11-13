@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { RefreshCw, RotateCcw, RotateCw, Users } from "lucide-react";
+import { CalendarPlus, RefreshCw, RotateCcw, RotateCw, Users } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { ConsultaEspacios, Espacio } from "../../hooks/useOcupacionEspacios";
 import { PlanoCitt } from "./PlanoCitt";
 import { estadosPlano } from "./estadosPlano";
@@ -14,7 +15,7 @@ const horaSede = new Intl.DateTimeFormat("es-CL", {
 });
 
 function normalizar(nombre: string) {
-  return nombre.normalize("NFD").replace(/\p{Diacritic}/gu, "").trim().toLowerCase();
+  return nombre.normalize("NFD").replace(/\p{Diacritic}/gu, "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function estadoDe(espacio?: Espacio): EstadoPlano {
@@ -39,7 +40,7 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
 
   const espacios = typeof consulta === "object" ? consulta.espacios : [];
   const zonas = zonasCitt.map((zona) => {
-    const nombres = [zona.nombre, ...(zona.alias ? [zona.alias] : [])].map(normalizar);
+    const nombres = [zona.nombre, zona.alias ?? zona.nombre, ...(zona.otrosNombres ?? [])].map(normalizar);
     const coincidencias = espacios.filter((espacio) => nombres.includes(normalizar(espacio.nombre)));
     const espacio = coincidencias.length === 1 ? coincidencias[0] : undefined;
     return { ...zona, espacio, estado: estadoDe(espacio) };
@@ -105,7 +106,7 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
             </div>
           </div>
           <figcaption className="flex flex-wrap justify-between gap-2 px-4 pb-4 text-xs text-slate-600 md:px-6">
-            <span>Arrastra con el mouse para girar e inclinar el plano.</span>
+            <span>Selecciona un espacio para reservar. Arrastra el plano para girarlo.</span>
             {typeof consulta === "object" && <span>Actualizado a las {horaSede.format(consulta.actualizado)}</span>}
           </figcaption>
         </figure>
@@ -130,10 +131,22 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
               );
             })}
           </ul>
-          {zonaSeleccionada?.espacio?.capacidad != null && (
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700" role="status">
-              <Users size={16} aria-hidden="true" />
-              {zonaSeleccionada.nombre} · {zonaSeleccionada.espacio.capacidad} {zonaSeleccionada.espacio.capacidad === 1 ? "persona" : "personas"}
+          {zonaSeleccionada && (
+            <div className="mt-3 space-y-2 rounded-lg bg-slate-100 p-3 text-sm text-slate-700">
+              <p className="flex items-center gap-2" role="status">
+                <Users size={16} aria-hidden="true" />
+                {zonaSeleccionada.nombre}
+                {zonaSeleccionada.espacio?.capacidad != null &&
+                  ` · ${zonaSeleccionada.espacio.capacidad} ${zonaSeleccionada.espacio.capacidad === 1 ? "persona" : "personas"}`}
+              </p>
+              {zonaSeleccionada.espacio && normalizar(zonaSeleccionada.espacio.estado ?? "") === "disponible" ? (
+                <Link to="/crear-solicitud"
+                  state={{ idEspacio: zonaSeleccionada.espacio.id, nombreEspacio: zonaSeleccionada.nombre }}
+                  aria-label={`Reservar ${zonaSeleccionada.nombre}`}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#003b73] px-3 py-2 font-semibold text-white hover:bg-[#002950]">
+                  <CalendarPlus size={16} aria-hidden="true" /> Reservar espacio
+                </Link>
+              ) : <p>{zonaSeleccionada.espacio ? "Espacio no disponible para reservar." : "Espacio sin datos de reserva."}</p>}
             </div>
           )}
         </aside>
