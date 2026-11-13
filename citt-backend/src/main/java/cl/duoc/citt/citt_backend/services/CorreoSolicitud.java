@@ -60,6 +60,18 @@ final class CorreoSolicitud {
                 datos, "Abrir Reservas CITT");
     }
 
+    static CorreoCitt recordatorioNotebook(Long solicitud, LocalDate fecha, LocalTime horaFin, String equipos) {
+        Map<String, String> datos = new LinkedHashMap<>();
+        datos.put("Solicitud", "#" + solicitud);
+        datos.put("Notebooks", equipos);
+        datos.put("Fecha de devolución", fecha.format(FECHA));
+        datos.put("Hora límite", horaFin.format(HORA) + " (Chile continental)");
+        return CorreoCitt.crear("Recordatorio de devolución de notebook - CITT Duoc UC",
+                Estado.RECORDATORIO, "Tu préstamo vence pronto",
+                "Devuelve los equipos en el mesón del CITT antes de la hora indicada.",
+                datos, "Abrir Reservas CITT");
+    }
+
     private static Map<String, String> datosReserva(SolicitudResponseDTO solicitud) {
         Map<String, String> datos = new LinkedHashMap<>();
         datos.put("Solicitud", "#" + solicitud.getIdSolicitud());

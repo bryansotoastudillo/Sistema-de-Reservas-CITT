@@ -10,9 +10,12 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.Base64;
+import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
@@ -34,9 +37,11 @@ public class NotebookMonitoreadoService {
 
     public record Credencial(String identificador, String clave, String ruta_reportes) {}
     public record Ubicacion(double latitud, double longitud, double precisionMetros, Instant observada) {}
+    public record Prestamo(Long solicitud, String estado, String solicitante, LocalDateTime vence,
+                           LocalDateTime devuelto, String condicion, String observacion) {}
     public record Equipo(Long idArticulo, String articulo, String codigoDuoc, String numeroSerie,
                          String estadoInventario, Instant recibido, Instant observado, JsonNode reporte,
-                         boolean prestamoExterno, Ubicacion ubicacion) {}
+                         boolean prestamoExterno, Ubicacion ubicacion, Prestamo prestamo) {}
 
     @Transactional
     public Credencial emitirCredencial(Long articuloId, boolean renovar) {
@@ -61,6 +66,10 @@ public class NotebookMonitoreadoService {
         var prestamos = repositorio.listarPrestamosExternos().stream()
                 .collect(Collectors.toMap(NotebookMonitoreadoRepository.PrestamoExterno::getArticuloId,
                         NotebookMonitoreadoRepository.PrestamoExterno::getSolicitudId));
+        var ahora = LocalDateTime.now(ZoneId.of("America/Santiago"));
+        var fichas = repositorio.listarUltimosPrestamos().stream()
+                .collect(Collectors.toMap(NotebookMonitoreadoRepository.PrestamoNotebook::getArticuloId,
+                        p -> ficha(p, ahora)));
         return repositorio.listarConArticulo().stream().map(n -> {
             var a = n.getArticulo();
             Long prestamo = prestamos.get(a.getIdArticulo());
@@ -78,8 +87,29 @@ public class NotebookMonitoreadoService {
             }
             return new Equipo(a.getIdArticulo(), a.getNombreArticulo(), a.getCodigoDuoc(), a.getNumeroSerie(),
                     a.getEstadoArticulo().getNombreEstado(), n.getRecibido(), n.getObservado(), reporte,
-                    prestamo != null, ubicacion);
+                    prestamo != null, ubicacion, fichas.get(a.getIdArticulo()));
         }).toList();
+    }
+
+    private static Prestamo ficha(NotebookMonitoreadoRepository.PrestamoNotebook p, LocalDateTime ahora) {
+        var vence = p.getFecha().atTime(p.getHoraFin());
+        String estado = p.getEstado();
+        String condicion = null;
+        String observacion = null;
+        if ("FINALIZADA".equals(estado)) {
+            estado = "DEVUELTO";
+            boolean danado = p.getIdsDanados() != null && Arrays.stream(p.getIdsDanados().split(","))
+                    .map(String::trim).anyMatch(p.getArticuloId().toString()::equals);
+            condicion = danado ? "Con daño registrado" : p.getDevolucion() == null
+                    ? "Condición no registrada" : "Sin daños registrados";
+            String prefijo = "DAÑADO EN RESERVA #" + p.getSolicitudId() + " - MOTIVO: ";
+            if (danado && p.getComentariosArticulo() != null && p.getComentariosArticulo().startsWith(prefijo)) {
+                observacion = p.getComentariosArticulo().substring(prefijo.length());
+            }
+        } else if (!ahora.isBefore(vence)) {
+            estado = "ATRASADO";
+        }
+        return new Prestamo(p.getSolicitudId(), estado, p.getSolicitante(), vence, p.getDevolucion(), condicion, observacion);
     }
 
     @Transactional

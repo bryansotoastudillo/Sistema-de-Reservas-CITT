@@ -84,16 +84,21 @@ class NotebookPostgresTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].estadoInventario").value("PRESTADO"))
                 .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].reporte.equipo").value("CITT-LAP02"))
-                .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].ubicacion.latitud").value(30.0));
+                .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].ubicacion.latitud").value(30.0))
+                .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].prestamo.solicitud").value(solicitud.intValue()))
+                .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].prestamo.solicitante").isNotEmpty());
 
         sql.update("""
                 update solicitud set id_estado_solicitud =
-                  (select id_estado_solicitud from estado_solicitud where nombre_estado = 'FINALIZADA')
+                  (select id_estado_solicitud from estado_solicitud where nombre_estado = 'FINALIZADA'),
+                  fecha_devolucion_real = localtimestamp, ids_articulos_danados = ?
                 where id_solicitud = ?
-                """, solicitud);
+                """, articuloId.toString(), solicitud);
         mvc.perform(get("/api/notebooks").with(user("direccion").roles("DIRECTOR")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].prestamoExterno").value(false))
+                .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].prestamo.estado").value("DEVUELTO"))
+                .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].prestamo.condicion").value("Con daño registrado"))
                 .andExpect(jsonPath("$[?(@.idArticulo == " + articuloId + ")].reporte.ubicacion").doesNotExist());
     }
 }

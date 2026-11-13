@@ -49,6 +49,9 @@ public class Solicitud {
     @Column(name = "fecha_devolucion_real")
     private java.time.LocalDateTime fechaDevolucionReal;
 
+    @Column(name = "recordatorio_notebook_enviado")
+    private java.time.Instant recordatorioNotebookEnviado;
+
     // Feature 4: Rastreo de daños por solicitud
     @Column(name = "espacio_danado_en_devolucion")
     private Boolean espacioDanadoEnDevolucion;

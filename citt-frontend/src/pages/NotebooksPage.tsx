@@ -18,6 +18,15 @@ interface Notebook {
   recibido: string | null;
   observado: string | null;
   prestamoExterno?: boolean;
+  prestamo?: {
+    solicitud: number;
+    estado: string;
+    solicitante: string;
+    vence: string;
+    devuelto: string | null;
+    condicion: string | null;
+    observacion: string | null;
+  } | null;
   ubicacion?: {
     latitud: number;
     longitud: number;
@@ -38,6 +47,10 @@ const campo = "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm tex
 const accion = "rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50";
 const fecha = new Intl.DateTimeFormat("es-CL", { dateStyle: "short", timeStyle: "short" });
 const metros = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
+const fechaPrestamo = (valor: string) => {
+  const [dia, hora] = valor.split("T");
+  return dia.split("-").reverse().join("/") + " · " + hora.slice(0, 5);
+};
 const energia: Record<string, string> = {
   encendido: "Encendido",
   suspendido: "Suspendido",
@@ -179,7 +192,7 @@ function VistaNotebooks() {
                 <th key={titulo} scope="col" className="px-5 py-3">{titulo}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {equipos.map(({ idArticulo, articulo, codigoDuoc, estadoInventario, observado, reporte, prestamoExterno, ubicacion }) => {
+              {equipos.map(({ idArticulo, articulo, codigoDuoc, estadoInventario, observado, reporte, prestamoExterno, ubicacion, prestamo }) => {
                 const numeroCitt = articulo.trim().match(/\bCITT(?:-LAP|\s+)(\d{1,3})$/i)?.[1];
                 const nombreEquipo = numeroCitt ? "CITT-LAP" + String(Number(numeroCitt)).padStart(2, "0") : "Sin número asignado";
                 const lectura = observado ? new Date(observado) : null;
@@ -191,6 +204,24 @@ function VistaNotebooks() {
                   <td className="px-5 py-4 font-semibold text-slate-900">
                     {nombreEquipo}
                     <span className="block text-xs font-normal text-slate-600">{codigoDuoc || "Inventario #" + idArticulo}</span>
+                    {prestamo ? <details className="mt-2 font-normal">
+                      <summary className="cursor-pointer whitespace-nowrap text-blue-800">
+                        Ficha de préstamo
+                        {prestamo.estado === "ATRASADO" && <span className="ml-1 font-semibold text-red-700"> · Atrasado</span>}
+                      </summary>
+                      <dl className="mt-2 grid gap-1 text-xs text-slate-700">
+                        <div><dt className="inline font-semibold">Solicitud </dt><dd className="inline">#{prestamo.solicitud}</dd></div>
+                        <div><dt className="inline font-semibold">Estado </dt><dd className="inline">
+                          {prestamo.estado === "DEVUELTO" ? "Devuelto" : prestamo.estado === "ATRASADO" ? "Atrasado" : "En préstamo"}
+                        </dd></div>
+                        <div><dt className="font-semibold">Entregado a</dt><dd className="break-all">{prestamo.solicitante}</dd></div>
+                        <div><dt className="font-semibold">Fecha y hora límite en Chile</dt><dd>{fechaPrestamo(prestamo.vence)}</dd></div>
+                        {prestamo.devuelto && <div><dt className="font-semibold">Devuelto el</dt><dd>{fechaPrestamo(prestamo.devuelto)}</dd></div>}
+                        {prestamo.condicion && <div><dt className="font-semibold">Condición al devolver</dt>
+                          <dd>{prestamo.condicion}{prestamo.observacion && <span className="block">{prestamo.observacion}</span>}</dd>
+                        </div>}
+                      </dl>
+                    </details> : <span className="mt-2 block text-xs font-normal text-slate-600">Sin préstamo registrado</span>}
                   </td>
                   <td className="px-5 py-4">{estadoInventario}</td>
                   <td className="whitespace-nowrap px-5 py-4">

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -47,17 +48,15 @@ public class SolicitudSchedulerService {
             return;
         }
 
-        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime ahora = LocalDateTime.now(ZoneId.of("America/Santiago"));
 
         // --- Lógica existente: EN PROCESO → ATRASADO ---
         List<Solicitud> enProcesoList = solicitudRepository.findByEstadoSolicitud(enProceso);
         for (Solicitud s : enProcesoList) {
             LocalDateTime limiteDevolucion = LocalDateTime.of(s.getFecha(), s.getHoraFin());
 
-            if (ahora.isAfter(limiteDevolucion)) {
-                s.setEstadoSolicitud(atrasado);
-                solicitudRepository.save(s);
-
+            if (ahora.isAfter(limiteDevolucion)
+                    && solicitudRepository.marcarAtrasada(s.getIdSolicitud(), enProceso, atrasado) == 1) {
                 emailService.enviarCorreoAtraso(
                         s.getUsuario().getEmail(),
                         s.getFecha(),

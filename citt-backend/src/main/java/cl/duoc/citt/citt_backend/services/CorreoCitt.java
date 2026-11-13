@@ -15,6 +15,7 @@ record CorreoCitt(String asunto, String html) {
         CONFIRMADA("Confirmada", "#176042", "#e7f4ed"),
         RECHAZADA("Rechazada", "#922b28", "#fcebea"),
         ATRASADA("Devolución pendiente", "#805000", "#fff4da"),
+        RECORDATORIO("Próxima devolución", "#805000", "#fff4da"),
         INFORMATIVO("Información de cuenta", "#424242", "#f1f0ed");
 
         private final String texto;

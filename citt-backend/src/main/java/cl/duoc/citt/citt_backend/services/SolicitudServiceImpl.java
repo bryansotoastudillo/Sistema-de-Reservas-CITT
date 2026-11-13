@@ -358,7 +358,7 @@ public class SolicitudServiceImpl implements SolicitudService {
     @Override
     @Transactional
     public SolicitudResponseDTO devolverArticulos(Long idSolicitud, cl.duoc.citt.citt_backend.dto.DevolucionRequestDTO dto, String emailAdmin) {
-        Solicitud solicitud = solicitudRepository.findById(idSolicitud)
+        Solicitud solicitud = solicitudRepository.bloquearPorId(idSolicitud)
                 .orElseThrow(() -> new ReglaNegocioException("Solicitud no encontrada"));
 
         if (solicitud.getUsuario().getEmail().equalsIgnoreCase(emailAdmin)) {
@@ -455,7 +455,7 @@ public class SolicitudServiceImpl implements SolicitudService {
         }
 
         // Feature 2: Guardar timestamp real de devolución
-        solicitud.setFechaDevolucionReal(LocalDateTime.now());
+        solicitud.setFechaDevolucionReal(LocalDateTime.now(java.time.ZoneId.of("America/Santiago")));
 
         EstadoSolicitud finalizada = estadoSolicitudRepository.findByNombreIgnoreCase("FINALIZADA")
                 .orElseThrow(() -> new ReglaNegocioException("Estado FINALIZADA no configurado en la BD."));

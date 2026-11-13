@@ -3,7 +3,10 @@ package cl.duoc.citt.citt_backend.repositories;
 import cl.duoc.citt.citt_backend.model.EstadoSolicitud;
 import cl.duoc.citt.citt_backend.model.Solicitud;
 import cl.duoc.citt.citt_backend.model.Usuario;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -11,9 +14,28 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Solicitud s where s.idSolicitud = :id")
+    Optional<Solicitud> bloquearPorId(@Param("id") Long id);
+
+    @Modifying
+    @Query("update Solicitud s set s.estadoSolicitud = :atrasado where s.idSolicitud = :id and s.estadoSolicitud = :enProceso")
+    int marcarAtrasada(@Param("id") Long id, @Param("enProceso") EstadoSolicitud enProceso,
+                       @Param("atrasado") EstadoSolicitud atrasado);
+
+    @Query("""
+            select s.idSolicitud from Solicitud s
+            where s.estadoSolicitud.nombre = 'EN PROCESO' and s.recordatorioNotebookEnviado is null
+              and s.fecha between :desde and :hasta
+              and exists (select n.id from NotebookMonitoreado n
+                  where n.articulo member of s.articulos and n.articulo.eliminado = false
+                    and n.articulo.estadoArticulo.nombreEstado = 'PRESTADO')
+            """)
+    List<Long> prestamosConRecordatorioPendiente(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 
     List<Solicitud> findByUsuarioOrderByFechaDesc(Usuario usuario);
 
