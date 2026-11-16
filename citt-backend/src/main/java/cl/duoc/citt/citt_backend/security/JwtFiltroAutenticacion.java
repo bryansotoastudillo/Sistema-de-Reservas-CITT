@@ -31,6 +31,11 @@ public class JwtFiltroAutenticacion extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
+        if ("GET".equals(request.getMethod())
+                && (request.getContextPath() + "/api/plano-citt/visor").equals(request.getRequestURI())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         // 1. Ignorar peticiones OPTIONS (CORS pre-flight)
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {

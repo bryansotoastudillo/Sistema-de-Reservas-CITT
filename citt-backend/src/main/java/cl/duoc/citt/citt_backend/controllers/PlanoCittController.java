@@ -1,11 +1,14 @@
 package cl.duoc.citt.citt_backend.controllers;
 
 import cl.duoc.citt.citt_backend.exception.ReglaNegocioException;
+import cl.duoc.citt.citt_backend.services.EspacioService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -17,23 +20,42 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/plano-citt")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('COORDINADOR', 'DIRECTOR')")
 public class PlanoCittController {
     private static final Set<String> CLAVES = Set.of("1", "2", "3", "4", "5", "CI", "ST", "MR", "CW", "P1", "P2", "P3");
     private final JdbcTemplate sql;
     private final ObjectMapper json;
+    private final EspacioService espacios;
 
     public record Posicion(Double x, Double y, Double giro) {}
     public record Distribucion(long revision, Map<String, Posicion> posiciones) {}
+    public record EspacioVisor(Long id, String nombre, String estado, Boolean enUsoAhora) {}
+    public record VistaPlano(long revision, Map<String, Posicion> posiciones, List<EspacioVisor> espacios,
+                             Instant consultadoEn) {}
+
+    @GetMapping("/visor")
+    public ResponseEntity<VistaPlano> visor() {
+        var distribucion = leerDistribucion();
+        var ocupacion = espacios.listar(null).stream()
+                .map(e -> new EspacioVisor(e.getId(), e.getNombre(), e.getEstado(), e.getEnUsoAhora()))
+                .toList();
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new VistaPlano(distribucion.revision(), distribucion.posiciones(), ocupacion, Instant.now()));
+    }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'DIRECTOR')")
     public ResponseEntity<Distribucion> obtener() {
+        return respuesta(leerDistribucion());
+    }
+
+    private Distribucion leerDistribucion() {
         var datos = sql.query("select revision, posiciones from distribucion_plano_citt where id = 1",
                 (fila, indice) -> new Distribucion(fila.getLong("revision"), leer(fila.getString("posiciones"))));
-        return respuesta(datos.isEmpty() ? new Distribucion(0, Map.of()) : datos.getFirst());
+        return datos.isEmpty() ? new Distribucion(0, Map.of()) : datos.getFirst();
     }
 
     @PutMapping
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'DIRECTOR')")
     public ResponseEntity<Distribucion> guardar(@RequestBody Distribucion distribucion) throws JsonProcessingException {
         var posiciones = distribucion.posiciones();
         if (distribucion.revision() < 0 || distribucion.revision() == Long.MAX_VALUE || posiciones == null

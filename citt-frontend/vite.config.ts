@@ -7,6 +7,9 @@ export default defineConfig({
     react(),
     tailwindcss()
   ],
+  build: {
+    rolldownOptions: { input: { principal: "index.html", visor: "visor-espacios.html" } },
+  },
   server: {
     port: 5173,
     strictPort: true,
