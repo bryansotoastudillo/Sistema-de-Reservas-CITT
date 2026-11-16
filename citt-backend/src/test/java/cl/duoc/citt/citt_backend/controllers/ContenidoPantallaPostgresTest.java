@@ -1,6 +1,11 @@
 package cl.duoc.citt.citt_backend.controllers;
 
+import cl.duoc.citt.citt_backend.model.Usuario;
+import cl.duoc.citt.citt_backend.repositories.RolRepository;
+import cl.duoc.citt.citt_backend.repositories.UsuarioRepository;
+import cl.duoc.citt.citt_backend.security.JwtUtilidades;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.api.io.TempDir;
@@ -11,6 +16,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -18,6 +24,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -32,6 +39,9 @@ class ContenidoPantallaPostgresTest {
     @TempDir static Path archivos;
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
+    @Autowired JwtUtilidades jwt;
+    @Autowired UsuarioRepository usuarios;
+    @Autowired RolRepository roles;
 
     @DynamicPropertySource
     static void directorio(DynamicPropertyRegistry registro) {
@@ -39,6 +49,7 @@ class ContenidoPantallaPostgresTest {
     }
 
     @Test
+    @Transactional
     void publicaReemplazaOrdenaYRetiraImagenesConPermisos() throws Exception {
         var coordinacion = user("coordinacion").roles("COORDINADOR");
         var direccion = user("direccion").roles("DIRECTOR");
@@ -55,7 +66,12 @@ class ContenidoPantallaPostgresTest {
         String id = original.get("id").asText();
         String archivoOriginal = original.get("archivo").asText();
         assertThat(Files.readAllBytes(archivos.resolve(archivoOriginal))).isEqualTo(imagen("x").getBytes());
-        mvc.perform(get(RUTA + "/archivos/" + archivoOriginal).with(direccion))
+        String vistaPrevia = RUTA + "/archivos/" + archivoOriginal;
+        Usuario usuario = usuarios.save(Usuario.builder().email("prueba-pantalla@example.test")
+                .password("solo-prueba").debeCambiarPassword(false)
+                .roles(Set.of(roles.findByNombre("DIRECTOR").orElseThrow())).build());
+        mvc.perform(get(vistaPrevia)).andExpect(status().isForbidden());
+        mvc.perform(get(vistaPrevia).cookie(new Cookie("auth_token", jwt.generarToken(usuario))))
                 .andExpect(status().isOk()).andExpect(content().contentType("image/png"));
 
         mvc.perform(multipart(RUTA).file(imagen("Segunda.png")).with(direccion))
