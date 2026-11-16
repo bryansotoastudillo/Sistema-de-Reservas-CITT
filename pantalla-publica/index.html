@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>DUOC UC — Sede Valparaíso</title>
+
+  <!-- ╔══════════════════════════════════════════════════════════╗
+       ║                 ⚙  CONFIGURACIÓN                        ║
+       ╚══════════════════════════════════════════════════════════╝ -->
+  <script>
+    const CONFIG = {
+      duracionSlide  : 8,    // segundos por imagen en el carrusel
+      duracionPlano  : 20,   // segundos para consultar la ocupación en pantalla
+      horaInicio     : 7,    // primera hora visible en el calendario (0-23)
+      horaFin        : 21,   // última hora visible
+      refreshMinutos : 5,    // cada cuántos minutos recarga los eventos
+
+    };
+
+    const URLS = {
+      logo : "https://www.duoc.cl/wp-content/themes/wordpress-duoc-cl/images/logo-duoc.svg",
+      // El feed ICS ya no va en el navegador: lo entrega el servidor en /pantalla/api/ics
+    };
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --negro    : #000000;
+      --acento   : #307FE2;   /* Escuela de Informática y Telecomunicaciones — Pantone 2727 C */
+      --acento-claro: #8BB8E8; /* Pantone 278 C — para texto sobre negro */
+      --blanco   : #FFFFFF;
+      --gris     : #888;
+      --topbar-h : 58px;
+      --hud-h    : 68px;
+      --div-w    : 3px;
+      --hora-h   : 56px;   /* alto de cada franja de 1 hora */
+      --gutter   : 48px;   /* ancho de la columna de horas */
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100vw; height: 100vh;
+      overflow: hidden;
+      background: var(--negro);
+      font-family: 'Lato', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ═══════════════════════ TOPBAR ═══════════════════════════ */
+    #topbar {
+      position: fixed; top:0; left:0; right:0;
+      height: var(--topbar-h);
+      background: var(--negro);
+      border-bottom: var(--div-w) solid var(--acento);
+      display: flex; align-items: center;
+      padding: 0 28px; gap: 18px;
+      z-index: 200;
+    }
+    #tb-logo { height:30px; width:auto; filter:invert(1); display:block; }
+    .tb-sep  { width:1px; height:26px; background:rgba(255,255,255,.18); }
+    #tb-sede { font-size:12px; font-weight:700; letter-spacing:3px;
+               text-transform:uppercase; color:rgba(255,255,255,.5); }
+    #tb-dia  { margin-left:auto; font-size:12px; font-weight:700;
+               letter-spacing:1px; text-transform:capitalize; color:var(--acento-claro); }
+
+    /* ══════════════════════ CUERPO 40|60 ══════════════════════ */
+    #body {
+      position: fixed;
+      top: var(--topbar-h); bottom: var(--hud-h);
+      left:0; right:0;
+      display: flex;
+    }
+
+    /* ─── Panel izquierdo: Calendario custom ────────────────── */
+    #panel-cal {
+      width: 40%; height: 100%; flex-shrink: 0;
+      display: flex; flex-direction: column;
+      background: #fafafa;
+      border-right: var(--div-w) solid var(--acento);
+    }
+
+    /* Cabecera del día */
+    #cal-header {
+      flex-shrink: 0;
+      background: var(--negro);
+      padding: 10px 14px 10px var(--gutter);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #cal-header-fecha {
+      font-size: 14px; font-weight: 900;
+      letter-spacing: 1px; text-transform: capitalize;
+      color: var(--blanco);
+    }
+    #cal-header-num {
+      font-size: 11px; font-weight: 300;
+      color: rgba(255,255,255,.4);
+      letter-spacing: 1px;
+    }
+
+    /* Zona scrollable con la grilla horaria */
+    #cal-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+      scroll-behavior: smooth;
+    }
+    /* Ocultar scrollbar visual */
+    #cal-scroll::-webkit-scrollbar { width: 0; }
+
+    #cal-grid {
+      position: relative;
+      /* alto total = horas visibles × altura por hora, se calcula en JS */
+    }
+
+    /* Franjas de hora */
+    .hora-row {
+      display: flex;
+      height: var(--hora-h);
+      border-bottom: 1px solid #e8e8e8;
+      position: relative;
+    }
+    .hora-row:nth-child(odd) { background: #fff; }
+    .hora-row:nth-child(even){ background: #f7f7f7; }
+
+    .hora-label {
+      width: var(--gutter); flex-shrink: 0;
+      display: flex; align-items: flex-start; justify-content: flex-end;
+      padding: 4px 6px 0 0;
+      font-size: 10px; font-weight: 700;
+      color: #999; letter-spacing: .5px;
+      line-height: 1;
+    }
+    .hora-media {
+      position: absolute;
+      top: 50%; left: var(--gutter); right: 0;
+      height: 1px;
+      background: #eee;
+    }
+
+    /* Eventos */
+    .evento {
+      position: absolute;
+      left: calc(var(--gutter) + 4px);
+      right: 4px;
+      border-radius: 4px;
+      padding: 4px 7px;
+      overflow: hidden;
+      cursor: default;
+      transition: filter .15s;
+      z-index: 5;
+    }
+    .evento:hover { filter: brightness(1.07); }
+    .evento-titulo {
+      font-size: 11px; font-weight: 700;
+      color: #000; line-height: 1.3;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .evento-hora {
+      font-size: 9px; font-weight: 400;
+      color: rgba(0,0,0,.6); margin-top: 2px;
+    }
+    .evento-lugar {
+      font-size: 9px; font-weight: 400;
+      color: rgba(0,0,0,.55);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    /* Tag EXCLUSIVO */
+    .tag-exclusivo {
+      display: inline-block;
+      margin-top: 3px;
+      background: var(--negro);
+      color: var(--acento-claro);
+      font-size: 7px; font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 2px;
+      border: 1px solid var(--acento-claro);
+      line-height: 1.4;
+    }
+
+    /* Evento de todo el día */
+    #cal-allday {
+      flex-shrink: 0;
+      background: var(--negro);
+      border-bottom: 1px solid rgba(48,127,226,.2);
+      padding: 0 6px 6px calc(var(--gutter) + 4px);
+      min-height: 0;
+      display: flex; flex-wrap: wrap; gap: 3px;
+    }
+    #cal-allday:empty { display:none; }
+    .allday-chip {
+      background: var(--acento);
+      color: var(--negro);
+      font-size: 9px; font-weight: 700;
+      letter-spacing: .5px;
+      padding: 3px 8px;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+
+    /* Línea de hora actual */
+    #time-line {
+      position: absolute;
+      left: calc(var(--gutter) - 5px); right: 0;
+      height: 2px;
+      background: var(--acento);
+      z-index: 10;
+      pointer-events: none;
+    }
+    #time-line::before {
+      content: '';
+      position: absolute;
+      left: 0; top: -4px;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--acento);
+    }
+
+    /* Estado de carga / error */
+    #cal-status {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px; background: #fafafa;
+      z-index: 20;
+    }
+    #cal-status svg { animation: girar 1.2s linear infinite; opacity:.3; }
+    @keyframes girar { to { transform: rotate(360deg); } }
+    #cal-status p { font-size:11px; color:#aaa; letter-spacing:1px; text-transform:uppercase; }
+
+    /* Etiqueta inferior */
+    #cal-tag {
+      flex-shrink: 0; height: 26px;
+      background: var(--negro);
+      display: flex; align-items: center;
+      padding: 0 12px; gap: 6px;
+      border-top: 1px solid rgba(48,127,226,.12);
+    }
+    .pulse {
+      width:6px; height:6px; border-radius:50%;
+      background:var(--acento);
+      animation: pulsea 2s ease-in-out infinite;
+    }
+    @keyframes pulsea { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.6)} }
+    #cal-tag span { font-size:8px; font-weight:700; letter-spacing:2px;
+                    text-transform:uppercase; color:var(--acento-claro); }
+    #cal-tag .cal-next { margin-left:auto; font-size:8px; font-weight:300;
+                         color:rgba(255,255,255,.25); }
+
+    /* ─── Panel derecho: Carrusel ───────────────────────────── */
+    #panel-carousel {
+      flex:1; height:100%;
+      position:relative; background:#0a0a0a; overflow:hidden;
+    }
+    .slide { position:absolute; inset:0; opacity:0; transition:opacity 1.1s ease; }
+    .slide.active { opacity:1; }
+    .slide img,.slide video { width:100%; height:100%; object-fit:contain; display:block; background:#000; }
+    .slide-plano { background:#fff; color:#1e293b; }
+    .slide-plano:not(.active) { pointer-events:none; }
+    .slide-plano iframe { height:100%; display:block; }
+    .slide-plano p { padding:20px; }
+    #car-grad { position:absolute; bottom:0; left:0; right:0; height:80px;
+                background:linear-gradient(to top,rgba(0,0,0,.7),transparent);
+                pointer-events:none; z-index:10; }
+    #car-dots { position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
+                display:flex; gap:8px; z-index:20; }
+    .dot { width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.3);
+           transition:background .3s,transform .3s; }
+    .dot.on { background:var(--acento); transform:scale(1.5); }
+    #car-num { position:absolute; top:12px; right:14px;
+               background:rgba(0,0,0,.5); border:1px solid rgba(48,127,226,.35);
+               color:rgba(255,255,255,.7); font-size:10px; font-weight:700;
+               letter-spacing:1px; padding:4px 11px; z-index:20; }
+    #car-prog { position:absolute; bottom:0; left:0; right:0; height:3px;
+                background:rgba(48,127,226,.12); z-index:30; }
+    #car-fill { height:100%; background:var(--acento); width:0%; }
+
+    /* ═════════════════════════ HUD ════════════════════════════ */
+    #hud {
+      position:fixed; bottom:0; left:0; right:0;
+      height:var(--hud-h);
+      background:var(--negro);
+      border-top:var(--div-w) solid var(--acento);
+      display:flex; align-items:stretch; z-index:200;
+    }
+    #hud-brand {
+      width:40%; flex-shrink:0;
+      background:var(--acento);
+      border-right:var(--div-w) solid var(--acento);
+      display:flex; align-items:center; padding:0 22px; gap:14px;
+    }
+    #hud-logo { height:26px; width:auto; display:block; flex-shrink:0; }
+    #hud-div  { width:1px; height:34px; background:rgba(0,0,0,.18); flex-shrink:0; }
+    #hud-text { display:flex; flex-direction:column; gap:1px; }
+    #hud-name { font-size:12px; font-weight:900; letter-spacing:2px;
+                text-transform:uppercase; color:var(--negro); }
+    #hud-sede { font-size:11px; font-weight:400; letter-spacing:1px; color:rgba(0,0,0,.72); }
+    #hud-right{ flex:1; display:flex; align-items:center;
+                justify-content:flex-end; padding:0 28px; gap:20px; }
+    #hud-date { text-align:right; color:rgba(255,255,255,.38); font-size:13px;
+                font-weight:300; letter-spacing:.3px; text-transform:capitalize; line-height:1.5; }
+    #hud-line { width:1px; height:30px; background:rgba(255,255,255,.1); }
+    #hud-clock{ font-size:38px; font-weight:900; color:var(--blanco);
+                letter-spacing:1px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    #hud-clock .colon { color:var(--acento-claro); animation:blink 1s step-start infinite; }
+    @keyframes blink { 50%{opacity:0} }
+
+    /* Entradas */
+    @keyframes fromTop    { from{transform:translateY(-100%);opacity:0} to{transform:translateY(0);opacity:1} }
+    @keyframes fromBottom { from{transform:translateY(100%);opacity:0}  to{transform:translateY(0);opacity:1} }
+    @keyframes fadeIn     { from{opacity:0} to{opacity:1} }
+    #topbar { animation:fromTop    .5s .05s both ease-out; }
+    #hud    { animation:fromBottom .5s .05s both ease-out; }
+    #body   { animation:fadeIn     .7s .4s  both; }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <img id="tb-logo" src="" alt="DUOC UC" />
+  <div class="tb-sep"></div>
+  <span id="tb-sede">Sede Valparaíso</span>
+  <span id="tb-dia"></span>
+</div>
+
+<!-- CUERPO -->
+<div id="body">
+
+  <!-- Panel izquierdo: Calendario 40% -->
+  <div id="panel-cal">
+    <div id="cal-header">
+      <span id="cal-header-fecha">—</span>
+      <span id="cal-header-num"></span>
+    </div>
+    <div id="cal-allday"></div>
+    <div id="cal-scroll">
+      <div id="cal-status">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+        <p>Cargando calendario…</p>
+      </div>
+      <div id="cal-grid"></div>
+    </div>
+    <div id="cal-tag">
+      <div class="pulse"></div>
+      <span>Vista del día — en vivo</span>
+      <span class="cal-next" id="cal-next-refresh"></span>
+    </div>
+  </div>
+
+  <!-- Panel derecho: Carrusel 60% -->
+  <div id="panel-carousel">
+    <div id="car-grad"></div>
+    <div id="car-dots"></div>
+    <div id="car-num"></div>
+    <div id="car-prog"><div id="car-fill"></div></div>
+  </div>
+</div>
+
+<!-- HUD INFERIOR -->
+<div id="hud">
+  <div id="hud-brand">
+    <img id="hud-logo" src="" alt="DUOC UC" />
+    <div id="hud-div"></div>
+    <div id="hud-text">
+      <span id="hud-name">DUOC UC</span>
+      <span id="hud-sede">Sede Valparaíso</span>
+    </div>
+  </div>
+  <div id="hud-right">
+    <div id="hud-date"></div>
+    <div id="hud-line"></div>
+    <div id="hud-clock"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   LOGOS
+═══════════════════════════════════════════════════════════════ */
+document.getElementById('tb-logo').src  = URLS.logo;
+document.getElementById('hud-logo').src = URLS.logo;
+
+/* ═══════════════════════════════════════════════════════════════
+   RELOJ Y FECHAS
+═══════════════════════════════════════════════════════════════ */
+function pad(n){ return String(n).padStart(2,'0'); }
+
+var elDia    = document.getElementById('tb-dia');
+var elDate   = document.getElementById('hud-date');
+var elClock  = document.getElementById('hud-clock');
+var elHdrFec = document.getElementById('cal-header-fecha');
+var elHdrNum = document.getElementById('cal-header-num');
+
+function tick(){
+  var n  = new Date();
+  var hh = pad(n.getHours()), mm = pad(n.getMinutes());
+  elClock.innerHTML = hh+'<span class="colon">:</span>'+mm;
+  var fechaLarga = n.toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'});
+  elDate.innerHTML  = fechaLarga + '<br>' + n.getFullYear();
+  elDia.textContent = fechaLarga + ' ' + n.getFullYear();
+  elHdrFec.textContent = n.toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+}
+tick();
+setInterval(tick, 1000);
+
+/* ═══════════════════════════════════════════════════════════════
+   PARSER ICS
+═══════════════════════════════════════════════════════════════ */
+
+// Parsea una fecha ICS: YYYYMMDD o YYYYMMDDTHHMMSS[Z]
+function parseICSDate(str){
+  str = str.trim();
+  var y=+str.substr(0,4), mo=+str.substr(4,2)-1, d=+str.substr(6,2);
+  if(str.length<=8) return new Date(y,mo,d,0,0,0);
+  var h=+str.substr(9,2), mi=+str.substr(11,2), s=+str.substr(13,2);
+  if(str.endsWith('Z')) return new Date(Date.UTC(y,mo,d,h,mi,s)); // UTC → local
+  return new Date(y,mo,d,h,mi,s); // con TZID asumimos zona del PC (Stgo)
+}
+
+// Expande RRULE semanal para el rango ±90 días
+function expandirRRULE(ev, rrule, exdates){
+  var eventos = [];
+  var dur = ev.end - ev.start;
+
+  // FREQ=WEEKLY;BYDAY=MO,TU,...
+  var freqW = /FREQ=WEEKLY/i.test(rrule);
+  var freqD = /FREQ=DAILY/i.test(rrule);
+  if(!freqW && !freqD) return [ev]; // no soportado → devolver el original
+
+  var diasMap = {SU:0,MO:1,TU:2,WE:3,TH:4,FR:5,SA:6};
+  var dias = [];
+  var byDay = rrule.match(/BYDAY=([A-Z,]+)/i);
+  if(byDay) byDay[1].split(',').forEach(function(d){ if(diasMap[d]!==undefined) dias.push(diasMap[d]); });
+
+  var untilM = rrule.match(/UNTIL=([0-9TZ]+)/i);
+  var countM = rrule.match(/COUNT=(\d+)/i);
+  var hasta  = untilM ? parseICSDate(untilM[1]) : new Date(Date.now()+90*86400000);
+  var maxCount = countM ? +countM[1] : 999;
+
+  var cur    = new Date(ev.start);
+  var hoy    = new Date(); hoy.setHours(0,0,0,0);
+  var limite = new Date(hoy); limite.setDate(limite.getDate()+1);
+  var count  = 0;
+
+  while(cur <= hasta && count < maxCount){
+    var ok = freqD || (dias.length===0) || dias.indexOf(cur.getDay())>=0;
+    if(ok){
+      // Verificar que no esté en EXDATE
+      var curStr = cur.toISOString().substr(0,10).replace(/-/g,'');
+      var excluido = exdates.some(function(ex){
+        return ex.substr(0,8)===curStr;
+      });
+      if(!excluido && cur>=hoy && cur<limite){
+        var neo = Object.assign({},ev);
+        neo.start = new Date(cur);
+        neo.end   = new Date(cur.getTime()+dur);
+        eventos.push(neo);
+      }
+      count++;
+    }
+    if(freqD) cur.setDate(cur.getDate()+1);
+    else       cur.setDate(cur.getDate()+1); // avanzar día a día y filtrar por BYDAY
+    if(!freqD && dias.length>0){
+      // Ya avanzamos 1 día arriba; si WEEKLY sin BYDAY avanzamos 7
+    }
+  }
+  // Para WEEKLY sin BYDAY: avanzar 7 en 7
+  // Re-hacer:
+  if(freqW && dias.length===0){
+    eventos = [];
+    cur = new Date(ev.start); count = 0;
+    while(cur<=hasta && count<maxCount){
+      var curStr2 = cur.toISOString().substr(0,10).replace(/-/g,'');
+      var excluido2 = exdates.some(function(ex){ return ex.substr(0,8)===curStr2; });
+      var hoy2=new Date(); hoy2.setHours(0,0,0,0);
+      var lim2=new Date(hoy2); lim2.setDate(lim2.getDate()+1);
+      if(!excluido2 && cur>=hoy2 && cur<lim2){
+        var neo2=Object.assign({},ev);
+        neo2.start=new Date(cur); neo2.end=new Date(cur.getTime()+dur);
+        eventos.push(neo2);
+      }
+      cur.setDate(cur.getDate()+7); count++;
+    }
+  }
+  return eventos.length ? eventos : [];
+}
+
+function parseICS(texto){
+  // Desdoblar líneas (line folding: CRLF + espacio/tab)
+  texto = texto.replace(/\r\n[ \t]/g,'').replace(/\n[ \t]/g,'');
+  var lineas = texto.split(/\r?\n/);
+
+  var eventos = [], ev = null, inEvent = false;
+  var rrule = null, exdates = [];
+
+  lineas.forEach(function(linea){
+    if(linea==='BEGIN:VEVENT'){ ev={}; inEvent=true; rrule=null; exdates=[]; return; }
+    if(linea==='END:VEVENT' && inEvent){
+      if(ev && ev.start){
+        if(rrule){
+          expandirRRULE(ev,rrule,exdates).forEach(function(e){ eventos.push(e); });
+        } else {
+          var hoy=new Date(); hoy.setHours(0,0,0,0);
+          var lim=new Date(hoy); lim.setDate(lim.getDate()+1);
+          if(!ev.allDay && ev.start>=hoy && ev.start<lim) eventos.push(ev);
+          if(ev.allDay){
+            var ds=new Date(ev.start); ds.setHours(0,0,0,0);
+            if(ds.getTime()===hoy.getTime()) eventos.push(ev);
+          }
+        }
+      }
+      inEvent=false; return;
+    }
+    if(!inEvent) return;
+
+    var colon = linea.indexOf(':');
+    if(colon<0) return;
+    var key = linea.substr(0,colon).toUpperCase();
+    var val = linea.substr(colon+1);
+
+    if(key==='SUMMARY')      { ev.titulo = val.replace(/\\,/g,',').replace(/\\n/g,' ').replace(/\\;/g,';'); }
+    else if(key==='LOCATION'){ ev.lugar  = val.replace(/\\,/g,',').replace(/\\n/g,' '); }
+    else if(key==='DESCRIPTION'){ ev.descripcion = val.replace(/\\n/g,'\n').replace(/\\,/g,',').replace(/\\;/g,';'); }
+    else if(key.startsWith('DTSTART')){
+      ev.allDay = key.includes('VALUE=DATE') || (val.length===8);
+      ev.start  = parseICSDate(val);
+    }
+    else if(key.startsWith('DTEND')){
+      ev.end = parseICSDate(val);
+    }
+    else if(key==='RRULE'){   rrule = val; }
+    else if(key.startsWith('EXDATE')){ exdates.push(val.trim()); }
+  });
+
+  return eventos;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PALETA DE COLORES PARA EVENTOS
+═══════════════════════════════════════════════════════════════ */
+var paleta = [
+  {bg:'#EEF4FC',borde:'#307FE2'}, // azul Escuela de Informática
+  {bg:'#D4EDDA',borde:'#28A745'}, // verde suave
+  {bg:'#D1ECF1',borde:'#17A2B8'}, // cyan suave
+  {bg:'#D6D8FF',borde:'#6264A7'}, // violeta suave (Teams)
+  {bg:'#FDECEA',borde:'#E05151'}, // rojo suave
+  {bg:'#E8D5F5',borde:'#9B59B6'}, // púrpura suave
+];
+var colorIdx = 0;
+var colorMap = {};
+function colorPara(titulo){
+  if(!colorMap[titulo]){
+    colorMap[titulo] = paleta[colorIdx % paleta.length];
+    colorIdx++;
+  }
+  return colorMap[titulo];
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER DEL CALENDARIO
+═══════════════════════════════════════════════════════════════ */
+var horaInicio = CONFIG.horaInicio;
+var horaFin    = CONFIG.horaFin;
+var totalHoras = horaFin - horaInicio;
+
+function renderCalendario(eventos){
+  var grid    = document.getElementById('cal-grid');
+  var allday  = document.getElementById('cal-allday');
+  var status  = document.getElementById('cal-status');
+  var scroll  = document.getElementById('cal-scroll');
+  var hdrNum  = document.getElementById('cal-header-num');
+
+  status.style.display = 'none';
+  grid.innerHTML       = '';
+  allday.innerHTML     = '';
+  colorIdx = 0; colorMap = {};
+
+  // Separar todo-el-día
+  var normales = [], todoDia = [];
+  eventos.forEach(function(e){ (e.allDay ? todoDia : normales).push(e); });
+
+  hdrNum.textContent = normales.length
+    ? normales.length + (normales.length===1?' evento':' eventos')
+    : 'Sin eventos hoy';
+
+  // Todo el día
+  todoDia.forEach(function(e){
+    var chip = document.createElement('div');
+    chip.className   = 'allday-chip';
+    chip.textContent = e.titulo || '(sin título)';
+    allday.appendChild(chip);
+  });
+
+  // Fijar alto del grid
+  var horaH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--hora-h'));
+  grid.style.height = (totalHoras * horaH) + 'px';
+  grid.style.position = 'relative';
+
+  // Filas de horas
+  for(var h=horaInicio; h<horaFin; h++){
+    var row = document.createElement('div');
+    row.className = 'hora-row';
+    row.style.position = 'absolute';
+    row.style.top  = ((h-horaInicio)*horaH)+'px';
+    row.style.left = '0'; row.style.right = '0';
+    row.style.height = horaH+'px';
+
+    var lbl = document.createElement('div');
+    lbl.className = 'hora-label';
+    lbl.textContent = pad(h)+':00';
+    row.appendChild(lbl);
+
+    var media = document.createElement('div');
+    media.className = 'hora-media';
+    row.appendChild(media);
+
+    grid.appendChild(row);
+  }
+
+  // Línea de hora actual
+  var linea = document.createElement('div');
+  linea.id = 'time-line';
+  grid.appendChild(linea);
+
+  function actualizarLinea(){
+    var ahora  = new Date();
+    var minuto = (ahora.getHours()-horaInicio)*60 + ahora.getMinutes();
+    var pct    = minuto / (totalHoras*60);
+    var top    = Math.min(Math.max(pct*(totalHoras*horaH), 0), totalHoras*horaH-2);
+    linea.style.top = top+'px';
+  }
+  actualizarLinea();
+  setInterval(actualizarLinea, 30000);
+
+  // ── Calcular columnas para eventos solapados ──────────────────
+  // 1. Filtrar eventos válidos y calcular top/alto en px
+  var evItems = [];
+  normales.forEach(function(ev){
+    if(!ev.start || !ev.end) return;
+    var h0 = ev.start.getHours() + ev.start.getMinutes()/60;
+    var h1 = ev.end.getHours()   + ev.end.getMinutes()/60;
+    h0 = Math.max(h0, horaInicio);
+    h1 = Math.min(h1, horaFin);
+    if(h1 <= h0) return;
+    evItems.push({ ev:ev, h0:h0, h1:h1,
+      top:(h0-horaInicio)*horaH, alto:(h1-h0)*horaH });
+  });
+
+  // 2. Asignar columnas — algoritmo greedy por hora de inicio
+  evItems.sort(function(a,b){ return a.h0-b.h0; });
+  evItems.forEach(function(item){ item.col=0; item.total=1; });
+
+  for(var i=0; i<evItems.length; i++){
+    // Buscar todos los eventos que se solapan con evItems[i]
+    var grupo = [evItems[i]];
+    for(var j=0; j<evItems.length; j++){
+      if(i===j) continue;
+      // Se solapan si no son completamente separados
+      if(evItems[j].h0 < evItems[i].h1 && evItems[j].h1 > evItems[i].h0){
+        grupo.push(evItems[j]);
+      }
+    }
+    if(grupo.length < 2) continue;
+
+    // Asignar columnas dentro del grupo usando columnas libres
+    var colsUsadas = [];
+    grupo.sort(function(a,b){ return a.h0-b.h0; });
+    grupo.forEach(function(item){
+      var colLibre = 0;
+      while(true){
+        var libre = true;
+        for(var k=0; k<grupo.length; k++){
+          if(grupo[k]===item) continue;
+          if(grupo[k].col===colLibre &&
+             grupo[k].h0 < item.h1 && grupo[k].h1 > item.h0){
+            libre=false; break;
+          }
+        }
+        if(libre) break;
+        colLibre++;
+      }
+      item.col = colLibre;
+    });
+    var maxCol = grupo.reduce(function(m,x){ return Math.max(m,x.col); },0);
+    grupo.forEach(function(item){ item.total = maxCol+1; });
+  }
+
+  // 3. Pintar eventos con posición horizontal calculada
+  var gutterPx = parseInt(getComputedStyle(document.documentElement)
+                   .getPropertyValue('--gutter'));
+  var areaW = grid.clientWidth - gutterPx - 6; // ancho disponible en px
+
+  evItems.forEach(function(item){
+    var ev   = item.ev;
+    var col  = colorPara(ev.titulo||'');
+    var colW = Math.floor(areaW / item.total);
+    var left = gutterPx + 4 + item.col * colW;
+    var w    = colW - 3; // pequeño gap entre columnas
+
+    var div = document.createElement('div');
+    div.className = 'evento';
+    div.style.top    = (item.top + 2)+'px';
+    div.style.height = Math.max(item.alto - 4, 18)+'px';
+    div.style.left   = left+'px';
+    div.style.right  = 'auto';
+    div.style.width  = w+'px';
+    div.style.background  = col.bg;
+    div.style.borderLeft  = '3px solid '+col.borde;
+
+    var iniStr = pad(ev.start.getHours())+':'+pad(ev.start.getMinutes());
+    var finStr = pad(ev.end.getHours())+':'+pad(ev.end.getMinutes());
+    var esExclusivo = ev.descripcion && /exclusividad\s+citt\s*:\s*s[ií]/i.test(ev.descripcion);
+
+    div.innerHTML =
+      '<div class="evento-titulo">'+(ev.titulo||'(sin título)')+'</div>'+
+      '<div class="evento-hora">'+iniStr+' – '+finStr+'</div>'+
+      (ev.lugar?'<div class="evento-lugar">📍 '+ev.lugar+'</div>':'')+
+      (esExclusivo?'<span class="tag-exclusivo">★ Exclusivo</span>':'');
+
+    grid.appendChild(div);
+  });
+
+  // Scroll a la hora actual
+  var ahora = new Date();
+  var minActual = (ahora.getHours()-horaInicio)*60+ahora.getMinutes();
+  var topActual = (minActual/60)*horaH - scroll.clientHeight/2 + horaH;
+  setTimeout(function(){ scroll.scrollTop = Math.max(topActual,0); }, 300);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FETCH DEL FEED ICS (con proxy CORS)
+═══════════════════════════════════════════════════════════════ */
+// Proxy del servidor (servicio citt-pantalla detrás de Nginx)
+var LOCAL_PROXY = '/pantalla/api/ics';
+
+var nextRefresh = CONFIG.refreshMinutos * 60;
+var refreshTimer;
+
+function iniciarCuentaRegresiva(){
+  clearInterval(refreshTimer);
+  nextRefresh = CONFIG.refreshMinutos * 60;
+  refreshTimer = setInterval(function(){
+    nextRefresh--;
+    var m=Math.floor(nextRefresh/60), s=nextRefresh%60;
+    var el=document.getElementById('cal-next-refresh');
+    if(el) el.textContent='Actualiza en '+m+':'+pad(s);
+    if(nextRefresh<=0) fetchICS();
+  },1000);
+}
+
+function fetchICS(){
+  iniciarCuentaRegresiva();
+
+  // 1. Intentar proxy local primero (el más confiable)
+  fetch(LOCAL_PROXY, {cache:'no-store'})
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.text();
+    })
+    .then(function(txt){
+      console.log('[ICS] Cargado desde proxy local OK');
+      renderCalendario(parseICS(txt));
+    })
+    .catch(function(err){
+      console.warn('[ICS] No se pudo cargar el calendario:', err);
+      var el=document.getElementById('cal-header-num');
+      if(el) el.textContent='⚠ Sin conexión con el servidor — reintentando';
+    });
+}
+
+// Actualizar fecha encabezado cada minuto
+setInterval(function(){
+  var n=new Date();
+  document.getElementById('cal-header-fecha').textContent =
+    n.toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+},60000);
+
+// Recargar a medianoche
+(function programarMedianoche(){
+  var ahora   = new Date();
+  var maniana = new Date(ahora.getFullYear(),ahora.getMonth(),ahora.getDate()+1);
+  setTimeout(function(){ fetchICS(); programarMedianoche(); }, maniana-ahora+500);
+})();
+
+// Primer fetch
+fetchICS();
+
+</script>
+<script src="./carrusel.js"></script>
+</body>
+</html>
