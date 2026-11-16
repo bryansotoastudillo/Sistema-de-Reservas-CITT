@@ -1,3 +1,4 @@
+import { rolesGestionCitt } from "../utils/roles";
 import React from "react";
 import { AdminDashboard } from "../componentes/dashboard/AdminDashboard";
 import { StaffDashboard } from "../componentes/dashboard/StaffDashboard";
@@ -13,7 +14,7 @@ export const DashboardPage: React.FC = () => {
   const rol = rolActivo || (userRoles.length > 0 ? userRoles[0] : "");
 
   // Evaluar qué dashboard mostrar
-  if (rol === "ADMIN" || rol === "DIRECTOR" || rol === "COORDINADOR") {
+  if (rol === "ADMIN" || rolesGestionCitt.includes(rol)) {
     return (
       <div className="space-y-8 pb-8">
         <AdminDashboard />

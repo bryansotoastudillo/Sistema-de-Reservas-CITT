@@ -1,6 +1,8 @@
 package cl.duoc.citt.citt_backend.controllers;
 
 import cl.duoc.citt.citt_backend.dto.*;
+import cl.duoc.citt.citt_backend.model.Usuario;
+import cl.duoc.citt.citt_backend.security.DominiosInstitucionales.Regla;
 import cl.duoc.citt.citt_backend.services.AutenticacionService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -9,6 +11,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -27,7 +30,13 @@ public class AutenticacionController {
         return ResponseEntity.ok(autenticacionService.registrar(solicitud));
     }
 
-    // Cualquier persona puede registrarse con su correo institucional
+    @GetMapping("/dominios-registro")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'DIRECTOR')")
+    public List<Regla> dominiosRegistro() {
+        return autenticacionService.dominiosRegistro();
+    }
+
+    // Autorregistro para los dominios autorizados por la política institucional.
     @PostMapping("/auto-registro")
     public ResponseEntity<RegistroResponseDTO> autoRegistro(@Valid @RequestBody AutoRegistroRequestDTO solicitud) {
         return ResponseEntity.ok(autenticacionService.autoRegistrar(solicitud));
@@ -162,10 +171,12 @@ public class AutenticacionController {
                 org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
 
         String email = authentication.getName();
-        java.util.List<String> roles = authentication.getAuthorities().stream()
+        var roles = authentication.getPrincipal() instanceof Usuario usuario
+                ? usuario.nombresRoles()
+                : authentication.getAuthorities().stream()
                 .map(org.springframework.security.core.GrantedAuthority::getAuthority)
                 .map(role -> role.replace("ROLE_", ""))
-                .collect(java.util.stream.Collectors.toList());
+                .collect(java.util.stream.Collectors.toSet());
 
         return ResponseEntity.ok(java.util.Map.of(
                 "email", email,

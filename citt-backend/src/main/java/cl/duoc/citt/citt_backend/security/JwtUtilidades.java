@@ -57,7 +57,9 @@ public class JwtUtilidades {
         Map<String, Object> extraClaims = new HashMap<>();
 
         // Guarda los roles del usuario dentro del token para que el frontend los pueda leer
-        var roles = detallesUsuario.getAuthorities().stream()
+        var roles = detallesUsuario instanceof Usuario usuario
+                ? usuario.nombresRoles().stream().map(rol -> "ROLE_" + rol).toList()
+                : detallesUsuario.getAuthorities().stream()
                 .map(auth -> auth.getAuthority())
                 .toList();
         extraClaims.put("roles", roles);

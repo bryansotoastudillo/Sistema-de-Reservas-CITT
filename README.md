@@ -124,11 +124,15 @@ spring.mail.password=${MAIL_PASSWORD:contraseña-de-aplicacion}
 *\* Para generar una contraseña de aplicación de Gmail: Google Account → Seguridad → Verificación en 2 pasos → Contraseñas de aplicaciones.*
 
 ### Dominios Institucionales
-| Dominio | Comportamiento |
-| :--- | :--- |
-| `@duocuc.cl` | Auto-registro → Rol Alumno asignado automáticamente |
-| `@profesor.duoc.cl` | Auto-registro → Rol Docente asignado automáticamente |
-| `@duoc.cl` | Requiere registro manual por un Coordinador (rol asignado manualmente) |
+| Dominio predeterminado | Rol automático | Alta | Variable de entorno |
+| :--- | :--- | :--- | :--- |
+| `@duocuc.cl` | Alumno | Manual y autorregistro | `CITT_DOMINIOS_ALUMNO` |
+| `@profesor.duoc.cl` | Docente | Manual y autorregistro | `CITT_DOMINIOS_DOCENTE` |
+| `@duoc.cl` | Administrativo | Manual desde Registrar Usuarios | `CITT_DOMINIOS_ADMINISTRATIVO` |
+
+Las propiedades están en [application.properties](citt-backend/src/main/resources/application.properties). Admiten varios dominios separados por comas. Registro, inicio de sesión y renovación usan la misma política. `CITT_CORREOS_EXCEPCION` admite correos individuales separados por comas para alta manual e inicio de sesión, con roles asignados por quien registra.
+
+Administrativo hereda los permisos de Docente y Coordinador. Los permisos exclusivos de Dirección se asignan con el rol Director. Los roles automáticos se aplican al crear la cuenta y pueden complementarse desde Registrar Usuarios. El panel muestra la configuración activa en **Dominios admitidos**.
 
 ---
 

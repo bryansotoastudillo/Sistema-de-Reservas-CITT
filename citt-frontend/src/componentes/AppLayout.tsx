@@ -1,3 +1,4 @@
+import { rolesGestionCitt, rolesPersonalCitt } from "../utils/roles";
 import React from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
@@ -72,6 +73,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     if (roles.includes("ADMIN")) return "Administrador";
     if (roles.includes("DIRECTOR")) return "Director";
     if (roles.includes("COORDINADOR")) return "Coordinador CITT";
+    if (roles.includes("ADMINISTRATIVO")) return "Administrativo";
     if (roles.includes("DOCENTE")) return "Docente";
     if (roles.includes("AYUDANTE")) return "Ayudante";
     if (roles.includes("ALUMNO")) return "Alumno";
@@ -83,8 +85,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     : getRolPrincipal(userRoles);
 
   //  acceso basados en rolActivo
-  const isAdminArea = ["ADMIN", "DIRECTOR", "COORDINADOR"].includes(rolActivo);
-  const isStaff = ["AYUDANTE", "DOCENTE", "COORDINADOR", "DIRECTOR"].includes(
+  const isAdminArea = ["ADMIN", ...rolesGestionCitt].includes(rolActivo);
+  const isStaff = rolesPersonalCitt.includes(
     rolActivo,
   );
   const isAyudante = rolActivo === "AYUDANTE";
@@ -134,7 +136,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       ? [
           { name: "Usuarios", icon: Users, path: "/usuarios" },
           { name: "Inventario", icon: Box, path: "/articulos" },
-          ...(["DIRECTOR", "COORDINADOR"].includes(rolActivo)
+          ...(rolesGestionCitt.includes(rolActivo)
             ? [{ name: "Contenido de pantalla", icon: Images, path: "/contenido-pantalla" }]
             : []),
           {

@@ -1,3 +1,4 @@
+import { rolesGestionCitt, rolesPersonalCitt } from "../utils/roles";
 import React, { useEffect, useState } from "react";
 import { ResumenRecursosCowork, type RecursoCowork } from "../componentes/RecursosCowork";
 import {
@@ -68,10 +69,10 @@ const ESTADOS_ACTIVOS = ["PENDIENTE", "APROBADA", "EN PROCESO", "ATRASADO"];
 export const SolicitudesPage: React.FC = () => {
   const rolActivo = localStorage.getItem("activeRole") || "";
   const currentUserEmail = localStorage.getItem("userEmail") || "";
-  const isStaff = ["AYUDANTE", "DOCENTE", "COORDINADOR", "DIRECTOR"].includes(
+  const isStaff = rolesPersonalCitt.includes(
     rolActivo.toUpperCase()
   );
-  const esAltaDireccion = ["COORDINADOR", "DIRECTOR"].includes(
+  const esAltaDireccion = rolesGestionCitt.includes(
     rolActivo.toUpperCase()
   );
 

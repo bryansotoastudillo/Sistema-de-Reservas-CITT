@@ -1,3 +1,4 @@
+import { rolesGestionCitt } from "../utils/roles";
 import React, { useEffect, useState } from "react";
 import api from "../api/axiosConfig";
 
@@ -23,7 +24,7 @@ export const ArticulosPage: React.FC = () => {
     return userRoles.some((r) => rolesPermitidos.includes(r.toUpperCase()));
   };
 
-  const isAdminArea = verificarAcceso(["ADMIN", "DIRECTOR", "COORDINADOR"]);
+  const isAdminArea = verificarAcceso(["ADMIN", ...rolesGestionCitt]);
   const isAyudante = verificarAcceso(["AYUDANTE"]);
   const isAlumno = verificarAcceso(["ALUMNO", "DOCENTE"]);
 

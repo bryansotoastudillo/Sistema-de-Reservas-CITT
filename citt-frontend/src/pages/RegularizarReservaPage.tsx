@@ -1,10 +1,11 @@
+import { rolesGestionCitt } from "../utils/roles";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import api from "../api/axiosConfig";
 import { useSeguridad } from "../hooks/useSeguridad";
 
-const rolesRegularizacion = ["COORDINADOR", "AYUDANTE", "DIRECTOR"];
+const rolesRegularizacion = ["AYUDANTE", ...rolesGestionCitt];
 const fechaCitt = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Santiago" });
 const campo = "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900";
 type Espacio = { id: number; nombre: string; capacidad: number };

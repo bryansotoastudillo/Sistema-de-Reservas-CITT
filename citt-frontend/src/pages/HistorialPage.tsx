@@ -1,3 +1,4 @@
+import { rolesPersonalCitt } from "../utils/roles";
 import React, { useEffect, useState } from "react";
 import { ResumenRecursosCowork, type RecursoCowork } from "../componentes/RecursosCowork";
 import { Navigate } from "react-router-dom";
@@ -68,7 +69,7 @@ export const HistorialPage: React.FC = () => {
   const [vistaActiva, setVistaActiva] = useState<"finalizadas" | "rechazadas">("finalizadas");
 
   const activeRole = localStorage.getItem("activeRole") || "";
-  const isStaff = ["AYUDANTE", "DOCENTE", "COORDINADOR", "DIRECTOR"].includes(activeRole);
+  const isStaff = rolesPersonalCitt.includes(activeRole);
 
   // Alumnos no pueden ver el historial, pero profesores y ayudantes sí
   if (activeRole === "ALUMNO") {

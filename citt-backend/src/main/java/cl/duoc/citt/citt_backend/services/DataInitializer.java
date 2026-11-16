@@ -23,7 +23,7 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         // Crear roles si no existen
-        List.of("COORDINADOR", "DIRECTOR", "DOCENTE", "AYUDANTE", "ALUMNO").forEach(nombre -> {
+        List.of("COORDINADOR", "DIRECTOR", "DOCENTE", "AYUDANTE", "ALUMNO", "ADMINISTRATIVO").forEach(nombre -> {
             if (rolRepository.findByNombre(nombre).isEmpty()) {
                 rolRepository.save(Rol.builder().nombre(nombre).build());
             }
