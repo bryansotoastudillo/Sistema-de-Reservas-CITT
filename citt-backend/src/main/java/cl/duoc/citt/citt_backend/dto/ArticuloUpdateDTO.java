@@ -34,4 +34,7 @@ public class ArticuloUpdateDTO {
 
     @NotNull(message = "El ID del estado del artículo es obligatorio")
     private Long idEstadoArticulo;
+
+    @jakarta.validation.Valid
+    private FichaActivoDTO fichaActivo;
 }

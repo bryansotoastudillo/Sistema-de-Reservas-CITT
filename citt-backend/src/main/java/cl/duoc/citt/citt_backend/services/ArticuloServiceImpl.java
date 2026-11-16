@@ -27,6 +27,7 @@ public class ArticuloServiceImpl implements ArticuloService{
 
     private final CategoriaRepository categoriaRepository;
     private final EstadoArticuloRepository estadoArticuloRepository;
+    private final FichaActivoService fichas;
 
     private void estandarizarTextos(ArticuloRequestDTO dto) {
         if (dto.getNombreArticulo() != null) dto.setNombreArticulo(dto.getNombreArticulo().trim().toUpperCase());
@@ -161,7 +162,7 @@ public class ArticuloServiceImpl implements ArticuloService{
     @Transactional
     public ArticuloResponseDTO actualizarArticulo(Long id, ArticuloUpdateDTO dto) {
         estandarizarTextosUpdate(dto);
-        Articulo a = articuloRepository.findById(id)
+        Articulo a = articuloRepository.buscarParaEditar(id)
                 .orElseThrow(() -> new ReglaNegocioException("Articulo " + id + " no existe"));
 
         // --- NUEVA VALIDACIÓN DE COMENTARIOS ---
@@ -177,7 +178,8 @@ public class ArticuloServiceImpl implements ArticuloService{
         // ----------------------------------------
 
         aplicarUpdate(a, dto);
-        Articulo saved = articuloRepository.save(a);
+        Articulo saved = articuloRepository.saveAndFlush(a);
+        if (dto.getFichaActivo() != null) fichas.guardar(id, dto.getFichaActivo());
         return toDTO(saved);
     }
 

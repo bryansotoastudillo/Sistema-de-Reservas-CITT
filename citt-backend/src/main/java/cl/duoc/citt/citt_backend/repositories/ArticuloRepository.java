@@ -12,6 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 public interface ArticuloRepository extends JpaRepository<Articulo,Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from Articulo a where a.idArticulo = :id")
+    java.util.Optional<Articulo> buscarParaEditar(@Param("id") Long id);
+
     @Query(value = "SELECT COUNT(*) FROM articulo WHERE LOWER(codigo_duoc) = LOWER(CAST(:codigoDuoc AS TEXT))", nativeQuery = true)
     int contarPorCodigoDuocIgnorandoFiltros(@Param("codigoDuoc") String codigoDuoc);
 
