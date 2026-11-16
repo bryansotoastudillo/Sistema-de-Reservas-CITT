@@ -43,10 +43,11 @@ public class JwtFiltroAutenticacion extends OncePerRequestFilter {
             return;
         }
 
-        // 2. Ignorar recursos estáticos (Mejora de rendimiento adoptada de COPIA)
+        // 2. Las rutas de la API requieren autenticar incluso si terminan con una extensión de archivo.
         String path = request.getRequestURI();
-        if (path.contains("/assets/") || path.endsWith(".css") || path.endsWith(".js") ||
-                path.endsWith(".png") || path.endsWith(".svg") || path.endsWith(".ico")) {
+        if (!path.startsWith(request.getContextPath() + "/api/")
+                && (path.contains("/assets/") || path.endsWith(".css") || path.endsWith(".js")
+                    || path.endsWith(".png") || path.endsWith(".svg") || path.endsWith(".ico"))) {
             filterChain.doFilter(request, response);
             return;
         }
