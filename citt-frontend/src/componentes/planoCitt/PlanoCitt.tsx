@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import { mobiliarioComun, murosCitt, pisoCitt, pizarrasCitt, referenciasCitt, rectangulo, transformarObjeto, zonasCitt } from "./geometriaCitt";
 import type { PosicionesPlano } from "./geometriaCitt";
 import { Mueble3D, Prisma } from "./escenaCitt";
@@ -13,19 +13,39 @@ type Props = {
   angulo: number;
   inclinacion: number;
   onGirar: (horizontal: number, vertical: number) => void;
+  zoom?: number;
+  onZoom?: (factor: number) => void;
+  ajustarAltura?: boolean;
   posiciones: PosicionesPlano;
   editar: boolean;
   onMover: (clave: string, dx: number, dy: number) => void;
 };
 
-export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion, onGirar, posiciones, editar, onMover }: Props) {
+export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion, onGirar,
+  zoom = 1, onZoom, ajustarAltura = false, posiciones, editar, onMover }: Props) {
   const id = useId();
   const clipPiso = `${id}-piso`;
   const sombra = `${id}-sombra`;
   const luz = `${id}-luz`;
   const pisoMadera = `${id}-madera`;
   const camara = useMemo(() => crearCamara(angulo, inclinacion), [angulo, inclinacion]);
+  const lienzo = useRef<SVGSVGElement>(null);
+  const escena = useRef<SVGGElement>(null);
   const gesto = useRef<{ id: number; x: number; y: number; activo: boolean; clave?: string } | null>(null);
+
+  useEffect(() => {
+    const svg = lienzo.current;
+    if (!svg || !onZoom) return;
+    function usarRueda(event: WheelEvent) {
+      if (event.ctrlKey || !event.deltaY) return;
+      event.preventDefault();
+      const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
+      onZoom?.(Math.exp(-Math.max(-240, Math.min(240, pixels)) * 0.002));
+    }
+    svg.addEventListener("wheel", usarRueda, { passive: false });
+    return () => svg.removeEventListener("wheel", usarRueda);
+  }, [onZoom]);
+
   const objetos = [...zonasCitt, ...pizarrasCitt].map((objeto) => {
     const mover = transformarObjeto(objeto.base, posiciones[objeto.clave] ?? { x: 0, y: 0 });
     return {
@@ -39,13 +59,15 @@ export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion
     };
   }).sort((a, b) => a.camara.profundidad(a.base) - b.camara.profundidad(b.base));
   return (
-    <svg viewBox="0 0 1070 652" className={`block h-auto w-full select-none ${editar ? "touch-none cursor-move" : "cursor-grab active:cursor-grabbing"}`}
+    <svg ref={lienzo} viewBox="0 0 1070 652" className={`block w-full select-none ${ajustarAltura ? "h-full" : "h-auto"} ${editar ? "touch-none cursor-move" : "cursor-grab active:cursor-grabbing"}`}
       role="group" aria-label="Plano tridimensional del CITT Valparaíso"
+      onContextMenu={editar ? (event) => event.preventDefault() : undefined}
       onPointerDown={(event) => {
-        if ((!editar && event.pointerType !== "mouse") || event.button !== 0) return;
-        const clave = editar && event.target instanceof Element
+        const giroDerecho = editar && event.pointerType === "mouse" && event.button === 2;
+        if (!giroDerecho && (event.button !== 0 || (!editar && event.pointerType !== "mouse"))) return;
+        const clave = editar && !giroDerecho && event.target instanceof Element
           ? event.target.closest("[data-objeto-plano]")?.getAttribute("data-objeto-plano") ?? undefined : undefined;
-        if (editar && !clave) return;
+        if (editar && !giroDerecho && !clave) return;
         gesto.current = { id: event.pointerId, x: event.clientX, y: event.clientY, activo: false, clave };
       }}
       onPointerMove={(event) => {
@@ -60,13 +82,16 @@ export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion
         }
         gesto.current = { ...inicio, x: event.clientX, y: event.clientY, activo: true };
         if (inicio.clave) {
-          const factor = 1070 / event.currentTarget.getBoundingClientRect().width;
-          const [x, y] = camara.desplazarEnPiso(dx * factor, dy * factor);
+          const matriz = escena.current?.getScreenCTM();
+          const escala = matriz && Math.hypot(matriz.a, matriz.b);
+          if (!escala) return;
+          const [x, y] = camara.desplazarEnPiso(dx / escala, dy / escala);
           onMover(inicio.clave, x, y);
         } else onGirar(dx * 0.45, -dy * 0.3);
       }}
       onPointerUp={() => { gesto.current = null; }}
       onPointerCancel={() => { gesto.current = null; }}
+      onLostPointerCapture={() => { gesto.current = null; }}
       onPointerLeave={() => { if (!gesto.current?.activo) gesto.current = null; }}
     >
       <defs>
@@ -84,6 +109,7 @@ export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion
         </linearGradient>
       </defs>
       <rect width="1070" height="652" fill={`url(#${luz})`} />
+      <g ref={escena} transform={`translate(535 326) scale(${zoom}) translate(-535 -326)`}>
       <polygon points={puntos(camara, pisoCitt, -18)} transform="translate(13 18)" fill="#294254" opacity=".32" filter={`url(#${sombra})`} />
       <Prisma camara={camara} base={pisoCitt} altura={-5} nivel={-21} fondo="#4f6872" canto="#344c58" cantoLateral="#435d69" borde="#46626c" />
       <Prisma camara={camara} base={pisoCitt} altura={0} nivel={-5} fondo={`url(#${pisoMadera})`} canto="#a48164" cantoLateral="#866e59" borde="#927661" />
@@ -178,6 +204,7 @@ export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion
           </g>
         );
       })}
+      </g>
     </svg>
   );
 }
