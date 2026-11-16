@@ -15,6 +15,17 @@ interface EstadoArticuloDTO {
   nombreEstado: string;
 }
 
+const camposFicha = [
+  { clave: "cantidad", etiqueta: "Cantidad", tipo: "number" },
+  { clave: "numeroSerie", etiqueta: "Número de serie del Excel", tipo: "text" },
+  { clave: "adquisicion", etiqueta: "Fecha de adquisición", tipo: "date" },
+  { clave: "montoActivo", etiqueta: "Monto del activo", tipo: "number" },
+  { clave: "ubicacionRegistrada", etiqueta: "Ubicación registrada", tipo: "text" },
+  { clave: "confirmarUbicacion", etiqueta: "Ubicación confirmada", tipo: "text" },
+  { clave: "poseeEtiquetaDuoc", etiqueta: "Posee etiqueta Duoc", tipo: "text" },
+] as const;
+type Ficha = Partial<Record<typeof camposFicha[number]["clave"] | "observacion", string>>;
+
 interface ModalEditarArticuloProps {
   isOpen: boolean;
   onClose: () => void;
@@ -33,6 +44,10 @@ export const ModalEditarArticulo: React.FC<ModalEditarArticuloProps> = ({
   const [estados, setEstados] = useState<EstadoArticuloDTO[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [ficha, setFicha] = useState<Ficha>({});
+  const [fichaModificada, setFichaModificada] = useState(false);
+  const [cargandoFicha, setCargandoFicha] = useState(true);
+  const [errorFicha, setErrorFicha] = useState(false);
 
   const [formData, setFormData] = useState({
     nombreArticulo: "",
@@ -50,6 +65,23 @@ export const ModalEditarArticulo: React.FC<ModalEditarArticuloProps> = ({
 
   useEffect(() => {
     if (isOpen && articulo) {
+      const consulta = new AbortController();
+      setFicha({});
+      setFichaModificada(false);
+      setCargandoFicha(true);
+      setErrorFicha(false);
+      api.get(`/articulos/${articulo.idArticulo}/ficha-activo`, { signal: consulta.signal })
+        .then(({ data }) => {
+          if (!consulta.signal.aborted) setFicha(Object.fromEntries(
+            Object.entries(data).map(([clave, valor]) => [clave, valor == null ? "" : String(valor)]),
+          ));
+        })
+        .catch(() => {
+          if (!consulta.signal.aborted) setErrorFicha(true);
+        })
+        .finally(() => {
+          if (!consulta.signal.aborted) setCargandoFicha(false);
+        });
       // 1. Cargar Estados disponibles
       const fetchEstados = async () => {
         try {
@@ -78,6 +110,7 @@ export const ModalEditarArticulo: React.FC<ModalEditarArticuloProps> = ({
         comentarios: articulo.comentarios || "",
       });
       setErrorMsg("");
+      return () => consulta.abort();
     }
   }, [isOpen, articulo]);
 
@@ -92,6 +125,7 @@ export const ModalEditarArticulo: React.FC<ModalEditarArticuloProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (cargandoFicha) return;
 
     if (
       !formData.nombreArticulo.trim() ||
@@ -137,6 +171,13 @@ export const ModalEditarArticulo: React.FC<ModalEditarArticuloProps> = ({
         sfai: formData.sfai.trim() || undefined,
         colliers: formData.colliers.trim() || undefined,
         comentarios: formData.comentarios.trim() || undefined,
+        fichaActivo: errorFicha || !fichaModificada ? undefined : {
+          ...Object.fromEntries(camposFicha.map(({ clave, tipo }) => {
+            const valor = ficha[clave]?.trim();
+            return [clave, valor ? (tipo === "number" ? Number(valor) : valor) : null];
+          })),
+          observacion: ficha.observacion?.trim() || null,
+        },
       };
 
       await api.put(`/articulos/${articulo.idArticulo}`, payload);
@@ -157,6 +198,31 @@ export const ModalEditarArticulo: React.FC<ModalEditarArticuloProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} titulo="Editar Artículo">
       <form onSubmit={handleSubmit} className="space-y-6">
+        <details className="rounded-xl border border-slate-200 p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-800">Ficha de activos fijos</summary>
+          {cargandoFicha ? <p className="mt-3 text-sm text-slate-600">Cargando ficha…</p>
+            : errorFicha ? <p role="alert" className="mt-3 text-sm text-red-700">No se pudo cargar la ficha. Reabre el formulario para editarla.</p>
+            : <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {camposFicha.map(({ clave, etiqueta, tipo }) => <label key={clave} className="text-sm text-slate-700">
+                {etiqueta}
+                <input type={tipo} value={ficha[clave] ?? ""} min={tipo === "number" ? 0 : undefined}
+                  step={tipo === "number" ? 1 : undefined} maxLength={tipo === "text" ? 255 : undefined}
+                  onChange={e => {
+                    setFichaModificada(true);
+                    setFicha(anterior => ({ ...anterior, [clave]: e.target.value }));
+                  }}
+                  className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </label>)}
+              <label className="text-sm text-slate-700 sm:col-span-2">Observación de la ficha
+                <textarea maxLength={5000} value={ficha.observacion ?? ""}
+                  onChange={e => {
+                    setFichaModificada(true);
+                    setFicha(anterior => ({ ...anterior, observacion: e.target.value }));
+                  }}
+                  className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" />
+              </label>
+            </div>}
+        </details>
         {errorMsg && (
           <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm flex items-start gap-2">
             <AlertCircle size={16} className="mt-0.5 shrink-0" />
