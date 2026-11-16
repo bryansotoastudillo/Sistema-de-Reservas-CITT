@@ -51,6 +51,9 @@ public class Solicitud {
     @Column(name = "fecha_devolucion_real")
     private java.time.LocalDateTime fechaDevolucionReal;
 
+    @Column(name = "fecha_liberacion_espacio")
+    private java.time.LocalDateTime fechaLiberacionEspacio;
+
     @Column(name = "recordatorio_notebook_enviado")
     private java.time.Instant recordatorioNotebookEnviado;
 

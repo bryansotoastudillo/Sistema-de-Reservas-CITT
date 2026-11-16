@@ -17,6 +17,7 @@ const EspaciosPage = () => {
   const { isVerificando } = useSeguridad();
   const rolActivo = localStorage.getItem("activeRole") || "";
   const isAdminArea = ["ADMIN", "DIRECTOR", "COORDINADOR"].includes(rolActivo.toUpperCase());
+  const puedeGestionarEstado = ["DIRECTOR", "COORDINADOR"].includes(rolActivo.toUpperCase());
   const { consulta, actualizar: fetchEspacios } = useOcupacionEspacios(!isVerificando && isAdminArea);
   const espacios = typeof consulta === "object" ? consulta.espacios : [];
 
@@ -76,7 +77,11 @@ const EspaciosPage = () => {
             <h2 className="text-lg font-bold text-slate-800">Plano 3D del CITT</h2>
             <a href="#espacios-registrados" className="text-sm font-semibold text-[#003b73] underline">Ir a la tabla de espacios</a>
           </div>
-          <VistaOcupacionCitt consulta={consulta} actualizar={fetchEspacios} />
+          <VistaOcupacionCitt consulta={consulta} actualizar={fetchEspacios}
+            onCambiarEstado={puedeGestionarEstado ? setEspacioEstado : undefined}>
+            {espacioEstado && <ModalActualizarEstado key={espacioEstado.id} espacio={espacioEstado}
+              onClose={() => setEspacioEstado(null)} onSuccess={() => { fetchEspacios(); setEspacioEstado(null); }} />}
+          </VistaOcupacionCitt>
         </div>
 
         <div id="espacios-registrados" className="flex flex-wrap items-center justify-between gap-2">
@@ -95,9 +100,10 @@ const EspaciosPage = () => {
                 <td className="p-5 text-gray-600">{e.capacidad} pers.</td>
                 <td className="p-5">{renderEstadoLocal(e.estado, e.enUsoAhora)}</td>
                 <td className="p-5 flex gap-3">
-                  <button onClick={() => setEspacioEstado(e)} className="text-amber-500 hover:text-amber-700" title="Gestionar Estado">
+                  {puedeGestionarEstado && <button type="button" onClick={() => setEspacioEstado(e)}
+                    className="text-amber-500 hover:text-amber-700" title="Gestionar Estado" aria-label={`Cambiar estado de ${e.nombre}`}>
                     <AlertTriangle size={18} />
-                  </button>
+                  </button>}
                   <button onClick={() => setEspacioAEditar(e)} className="text-blue-600 hover:text-blue-800" title="Editar Información">
                     <Edit size={18} />
                   </button>
@@ -113,7 +119,6 @@ const EspaciosPage = () => {
         <ModalCrearEspacio isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchEspacios} />
         <ModalEditarEspacio isOpen={!!espacioAEditar} onClose={() => setEspacioAEditar(null)} onSuccess={() => { fetchEspacios(); setEspacioAEditar(null); }} espacio={espacioAEditar} />
         <ModalConfirmarEliminar isOpen={!!espacioABorrar} onClose={() => setEspacioABorrar(null)} onConfirm={ejecutarEliminar} nombreEspacio={espacioABorrar?.nombre || ""} />
-        <ModalActualizarEstado isOpen={!!espacioEstado} onClose={() => setEspacioEstado(null)} onSuccess={() => { fetchEspacios(); setEspacioEstado(null); }} espacio={espacioEstado} />
       </div>
     </>
   );

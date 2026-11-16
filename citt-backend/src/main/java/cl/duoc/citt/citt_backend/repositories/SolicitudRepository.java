@@ -45,14 +45,38 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
 
     @Query("""
             SELECT s FROM Solicitud s JOIN FETCH s.espacio
-            WHERE s.estadoSolicitud.nombre IN ('EN PROCESO', 'ATRASADO')
+            WHERE s.fechaLiberacionEspacio IS NULL AND (s.estadoSolicitud.nombre IN ('EN PROCESO', 'ATRASADO')
                OR (s.estadoSolicitud.nombre = 'APROBADA'
-                   AND s.fecha = :fecha AND s.horaInicio <= :hora AND s.horaFin > :hora)
+                   AND s.fecha = :fecha AND s.horaInicio <= :hora AND s.horaFin > :hora))
             """)
     List<Solicitud> findOcupacionesActuales(@Param("fecha") LocalDate fecha, @Param("hora") LocalTime hora);
 
+    @Query("""
+            SELECT s.idSolicitud FROM Solicitud s
+            WHERE s.espacio IS NOT NULL AND (s.espacio.id = :id OR s.exclusividad = true)
+              AND s.fechaLiberacionEspacio IS NULL
+              AND (s.estadoSolicitud.nombre IN ('EN PROCESO', 'ATRASADO')
+                OR (s.estadoSolicitud.nombre = 'APROBADA' AND s.fecha = :fecha
+                    AND s.horaInicio <= :hora AND s.horaFin > :hora))
+            ORDER BY s.idSolicitud
+            """)
+    List<Long> idsOcupacionesActualesDelEspacio(@Param("id") Long id, @Param("fecha") LocalDate fecha,
+                                                @Param("hora") LocalTime hora);
+
+    @Query("""
+            SELECT COUNT(s) FROM Solicitud s
+            WHERE s.espacio IS NOT NULL AND (s.espacio.id = :id OR s.exclusividad = true)
+              AND s.fechaLiberacionEspacio IS NULL AND s.estadoSolicitud.nombre IN ('PENDIENTE', 'APROBADA')
+              AND (s.fecha > :hoy OR (s.fecha = :hoy AND s.horaInicio > :hora))
+              AND (s.fecha < :diaLimite OR (s.fecha = :diaLimite AND s.horaInicio < :horaLimite))
+            """)
+    long contarReservasPosteriores(@Param("id") Long id, @Param("hoy") LocalDate hoy,
+                                   @Param("hora") LocalTime hora, @Param("diaLimite") LocalDate diaLimite,
+                                   @Param("horaLimite") LocalTime horaLimite);
+
     // Consulta para verificar si un espacio ya está reservado en un horario específico
     @Query("SELECT COUNT(s) FROM Solicitud s WHERE s.espacio.id = :idEspacio " +
+            "AND s.fechaLiberacionEspacio IS NULL " +
             "AND s.fecha = :fecha " +
             "AND s.estadoSolicitud.nombre IN ('PENDIENTE', 'APROBADA', 'EN PROCESO', 'ATRASADO') " +
             "AND (s.horaInicio < :horaFin AND s.horaFin > :horaInicio)")
@@ -65,6 +89,7 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
 
     //  Solicitud de Exclusividad: Verifica que TODO el CITT esté libre
     @Query("SELECT COUNT(s) FROM Solicitud s WHERE s.fecha = :fecha " +
+            "AND s.fechaLiberacionEspacio IS NULL " +
             "AND s.estadoSolicitud.nombre IN ('PENDIENTE', 'APROBADA', 'EN PROCESO', 'ATRASADO') " +
             "AND (s.horaInicio < :horaFin AND s.horaFin > :horaInicio)")
     int contarCualquierReservaEnHorario(
@@ -75,6 +100,7 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
 
     // Solicitud Común: Bloquea reservas si ya hay una exclusividad activa
     @Query("SELECT COUNT(s) FROM Solicitud s WHERE s.fecha = :fecha " +
+            "AND s.fechaLiberacionEspacio IS NULL " +
             "AND s.exclusividad = true " +
             "AND s.estadoSolicitud.nombre IN ('PENDIENTE', 'APROBADA', 'EN PROCESO', 'ATRASADO') " +
             "AND (s.horaInicio < :horaFin AND s.horaFin > :horaInicio)")
@@ -84,6 +110,7 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
             @Param("horaFin") LocalTime horaFin
     );
 
-    @Query("SELECT s FROM Solicitud s WHERE s.espacio IS NOT NULL AND s.estadoSolicitud.nombre IN ('APROBADA', 'EN PROCESO', 'ATRASADO')")
+    @Query("SELECT s FROM Solicitud s WHERE s.espacio IS NOT NULL AND s.fechaLiberacionEspacio IS NULL " +
+            "AND s.estadoSolicitud.nombre IN ('APROBADA', 'EN PROCESO', 'ATRASADO')")
     List<Solicitud> findSolicitudesParaCalendario();
 }
