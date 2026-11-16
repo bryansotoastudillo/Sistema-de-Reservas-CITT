@@ -197,7 +197,7 @@ export const ModalEditarArticulo: React.FC<ModalEditarArticuloProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} titulo="Editar Artículo">
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="max-h-[calc(100dvh_-_9rem)] space-y-6 overflow-y-auto pr-2">
         <details className="rounded-xl border border-slate-200 p-4">
           <summary className="cursor-pointer text-sm font-semibold text-slate-800">Ficha de activos fijos</summary>
           {cargandoFicha ? <p className="mt-3 text-sm text-slate-600">Cargando ficha…</p>
