@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage';
 import PerfilPage from './pages/perfilPage';
 import UsuariosPage from './pages/UsuariosPage';
 import EspaciosPage from "./pages/EspaciosPage";
+import { ContenidoPantallaPage } from "./pages/ContenidoPantallaPage";
 import { SolicitarReservaPage } from "./pages/SolicitarReservaPage";
 import { FormularioSolicitudPage } from "./pages/FormularioSolicitudPage";
 import { HistorialPage } from "./pages/HistorialPage";
@@ -29,6 +30,7 @@ function App() {
           <Route path="/perfil" element={<PerfilPage />} />
           <Route path="/usuarios" element={<UsuariosPage />} />
           <Route path="/espacios" element={<EspaciosPage />} />
+          <Route path="/contenido-pantalla" element={<ContenidoPantallaPage />} />
           <Route path="/solicitar-reserva" element={<SolicitarReservaPage />} />
           <Route path="/crear-solicitud" element={<FormularioSolicitudPage />} />
           <Route path="/historial-espacios" element={<HistorialPage />} />

@@ -34,6 +34,9 @@ services:
       - JWT_SECRET=tu_clave_secreta_super_segura_para_el_citt_duoc
       - BREVO_API_KEY=${BREVO_API_KEY:-}
       - TZ=America/Santiago
+      - CITT_PANTALLA_DIR=/app/contenido-pantalla
+    volumes:
+      - pantalla_data:/app/contenido-pantalla
     depends_on:
       - db # Espera a que postgres encienda antes de iniciar
 
@@ -52,3 +55,4 @@ services:
 # Definimos el volumen persistente
 volumes:
   postgres_data:
+  pantalla_data:

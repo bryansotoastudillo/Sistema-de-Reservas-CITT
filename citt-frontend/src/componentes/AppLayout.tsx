@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
-  Cpu, Calendar, Package, History, Users, FileText, Settings, LogOut, PieChart, CalendarCheck, Handshake, Box, UserCog, MonitorSmartphone, ClipboardList, PackageOpen,
+  Cpu, Calendar, Package, History, Users, FileText, Settings, LogOut, PieChart, CalendarCheck, Handshake, Box, UserCog, MonitorSmartphone, ClipboardList, PackageOpen, Images,
 } from "lucide-react";
 import api from "../api/axiosConfig";
 import { useSeguridad } from "../hooks/useSeguridad";
@@ -13,6 +13,7 @@ const RUTAS_NOMBRES: Record<string, string> = {
   "/perfil": "Mi Perfil",
   "/usuarios": "Gestión de Usuarios",
   "/espacios": "Gestión de Espacios",
+  "/contenido-pantalla": "Contenido de pantalla",
   "/solicitar-reserva": "Reserva de Espacios",
   "/crear-solicitud": "Nueva Solicitud",
   "/historial-espacios": "Historial de Solicitudes",
@@ -132,6 +133,9 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       ? [
           { name: "Usuarios", icon: Users, path: "/usuarios" },
           { name: "Inventario", icon: Box, path: "/articulos" },
+          ...(["DIRECTOR", "COORDINADOR"].includes(rolActivo)
+            ? [{ name: "Contenido de pantalla", icon: Images, path: "/contenido-pantalla" }]
+            : []),
           {
             name: "Espacios",
             icon: MonitorSmartphone,
