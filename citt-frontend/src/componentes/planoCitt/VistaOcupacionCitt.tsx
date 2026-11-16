@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarPlus, Pencil, RefreshCw, RotateCcw, RotateCw, Users } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarPlus, Maximize, Minimize, Pencil, RefreshCw, RotateCcw, RotateCw, Users, ZoomIn, ZoomOut } from "lucide-react";
 import { isAxiosError } from "axios";
 import { Link } from "react-router-dom";
 import api from "../../api/axiosConfig";
@@ -13,6 +13,8 @@ import type { PosicionesPlano } from "./geometriaCitt";
 
 const ANGULO_INICIAL = 25;
 const INCLINACION_INICIAL = 44;
+const ZOOM_MINIMO = 0.75;
+const ZOOM_MAXIMO = 3;
 const objetosEditables = [...zonasCitt, ...pizarrasCitt];
 type Distribucion = { revision: number; posiciones: PosicionesPlano };
 const movimientos = [
@@ -33,12 +35,40 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [angulo, setAngulo] = useState(ANGULO_INICIAL);
   const [inclinacion, setInclinacion] = useState(INCLINACION_INICIAL);
+  const [zoom, setZoom] = useState(1);
+  const panel = useRef<HTMLElement>(null);
+  const [pantallaCompleta, setPantallaCompleta] = useState(false);
+  const [errorPantalla, setErrorPantalla] = useState("");
   const [distribucion, setDistribucion] = useState<Distribucion | null>(null);
   const [borrador, setBorrador] = useState<PosicionesPlano | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [intentoPlano, setIntentoPlano] = useState(0);
   const [errorPlano, setErrorPlano] = useState("");
   const editar = borrador !== null;
+
+  useEffect(() => {
+    function sincronizarPantalla() {
+      setPantallaCompleta(document.fullscreenElement === panel.current);
+    }
+    document.addEventListener("fullscreenchange", sincronizarPantalla);
+    return () => document.removeEventListener("fullscreenchange", sincronizarPantalla);
+  }, []);
+
+  async function alternarPantallaCompleta() {
+    const elemento = panel.current;
+    if (!elemento) return;
+    setErrorPantalla("");
+    try {
+      if (document.fullscreenElement === elemento) await document.exitFullscreen();
+      else await elemento.requestFullscreen();
+    } catch {
+      setErrorPantalla("El navegador no pudo cambiar el modo de pantalla completa.");
+    }
+  }
+
+  const cambiarZoom = useCallback((factor: number) => {
+    setZoom(valor => Math.min(ZOOM_MAXIMO, Math.max(ZOOM_MINIMO, valor * factor)));
+  }, []);
 
   useEffect(() => {
     const consulta = new AbortController();
@@ -102,8 +132,9 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
   const zonaSeleccionada = zonas.find((zona) => zona.clave === seleccion);
 
   return (
-    <section aria-label="Ocupación de espacios" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 md:px-6">
+    <section ref={panel} aria-label="Ocupación de espacios" className={`overflow-hidden bg-white ${pantallaCompleta
+      ? "flex h-full w-full flex-col" : "rounded-2xl border border-slate-200 shadow-sm"}`}>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 md:px-6">
         <ul aria-label="Leyenda de ocupación" className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {(Object.keys(estadosPlano) as EstadoPlano[]).map((clave) => {
             const cantidad = zonas.filter((zona) => zona.estado === clave).length;
@@ -118,6 +149,11 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
           })}
         </ul>
         <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={alternarPantallaCompleta}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-[#003b73] hover:bg-slate-50">
+          {pantallaCompleta ? <Minimize size={15} aria-hidden="true" /> : <Maximize size={15} aria-hidden="true" />}
+          {pantallaCompleta ? "Salir de pantalla completa" : "Pantalla completa"}
+        </button>
         {!editar && distribucion && <button type="button" onClick={() => {
           setBorrador(distribucion.posiciones);
           setErrorPlano("");
@@ -142,6 +178,7 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
         </button>
         </div>
       </div>
+      {errorPantalla && <p role="alert" className="bg-amber-50 px-4 py-3 text-sm text-amber-900">{errorPantalla}</p>}
       {errorPlano && <p role="alert" className="bg-amber-50 px-4 py-3 text-sm text-amber-900">
         {errorPlano} {!editar && <button type="button" className="font-semibold underline" onClick={() => {
           setErrorPlano("");
@@ -150,9 +187,10 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
       </p>}
       {consulta === "cargando" && <p role="status" className="px-4 py-3 text-sm text-slate-600">Consultando la ocupación de los espacios…</p>}
       {consulta === "error" && <p role="alert" className="bg-amber-50 px-4 py-3 text-sm text-amber-900">No se pudo consultar la ocupación. Pulsa Actualizar para volver a intentarlo.</p>}
-      <div className="grid min-w-0 xl:grid-cols-[minmax(0,1fr)_250px]">
-        <figure className="min-w-0 bg-[#e4ecee]">
-          <div role="group" aria-label="Controles de la vista 3D" className="flex flex-wrap items-center gap-1 px-3 pt-3 md:px-5">
+      <div className={`grid min-w-0 xl:grid-cols-[minmax(0,1fr)_250px] ${pantallaCompleta
+        ? "min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_250px] lg:grid-rows-[minmax(0,1fr)]" : ""}`}>
+        <figure className={`min-w-0 bg-[#e4ecee] ${pantallaCompleta ? "flex min-h-0 flex-col" : ""}`}>
+          <div role="group" aria-label="Controles de la vista 3D" className="flex shrink-0 flex-wrap items-center gap-1 px-3 pt-3 md:px-5">
             <button type="button" aria-label="Girar a la izquierda" title="Girar a la izquierda"
               onClick={() => girar(-15)}
               className="rounded-lg bg-white/90 p-2 text-[#21454c] shadow-sm hover:bg-white disabled:opacity-40">
@@ -161,6 +199,7 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
             <button type="button" onClick={() => {
               setAngulo(ANGULO_INICIAL);
               setInclinacion(INCLINACION_INICIAL);
+              setZoom(1);
             }}
               className="rounded-lg bg-white/90 px-3 py-2 text-sm font-semibold text-[#21454c] shadow-sm hover:bg-white">
               Vista inicial
@@ -170,8 +209,19 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
               className="rounded-lg bg-white/90 p-2 text-[#21454c] shadow-sm hover:bg-white disabled:opacity-40">
               <RotateCw size={18} aria-hidden="true" />
             </button>
+            <button type="button" aria-label="Alejar" title="Alejar" onClick={() => cambiarZoom(1 / 1.2)}
+              disabled={zoom <= ZOOM_MINIMO}
+              className="rounded-lg bg-white/90 p-2 text-[#21454c] shadow-sm hover:bg-white disabled:opacity-40">
+              <ZoomOut size={18} aria-hidden="true" />
+            </button>
+            <button type="button" aria-label="Acercar" title="Acercar" onClick={() => cambiarZoom(1.2)}
+              disabled={zoom >= ZOOM_MAXIMO}
+              className="rounded-lg bg-white/90 p-2 text-[#21454c] shadow-sm hover:bg-white disabled:opacity-40">
+              <ZoomIn size={18} aria-hidden="true" />
+            </button>
           </div>
-          <div className="overflow-x-auto" tabIndex={0} aria-label="Vista 3D desplazable"
+          <div className={pantallaCompleta ? "h-[60dvh] lg:h-auto lg:min-h-0 lg:flex-1" : "overflow-x-auto"}
+            tabIndex={0} aria-label="Vista 3D desplazable"
             onKeyDown={(event) => {
               if (event.target !== event.currentTarget) return;
               if (event.key === "ArrowUp" || event.key === "ArrowDown") {
@@ -179,18 +229,22 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
                 girar(0, event.key === "ArrowUp" ? 5 : -5);
               }
             }}>
-            <div className="min-w-[570px]">
+            <div className={pantallaCompleta ? "h-full" : "min-w-[570px]"}>
               <PlanoCitt estados={estados} seleccion={seleccion} onSeleccion={setSeleccion}
                 angulo={angulo} inclinacion={inclinacion} onGirar={girar}
+                zoom={zoom} onZoom={cambiarZoom} ajustarAltura={pantallaCompleta}
                 posiciones={borrador ?? distribucion?.posiciones ?? {}} editar={editar} onMover={mover} />
             </div>
           </div>
           <figcaption className="flex flex-wrap justify-between gap-2 px-4 pb-4 text-xs text-slate-600 md:px-6">
-            <span>{editar ? "Arrastra un espacio o una pizarra para moverlo." : "Selecciona un espacio para reservar. Arrastra el plano para girarlo."}</span>
+            <span>{editar
+              ? "Arrastra con el clic izquierdo para mover objetos y con el derecho para girar. Usa la rueda para acercar o alejar."
+              : "Selecciona un espacio para reservar. Arrastra el plano para girarlo y usa la rueda para acercar o alejar."}</span>
             {typeof consulta === "object" && <span>Actualizado a las {horaSede.format(consulta.actualizado)}</span>}
           </figcaption>
         </figure>
-        <aside className="border-t border-slate-200 p-3 xl:border-l xl:border-t-0" aria-label="Espacios del plano">
+        <aside className={`border-t border-slate-200 p-3 xl:border-l xl:border-t-0 ${pantallaCompleta
+          ? "lg:overflow-y-auto lg:border-l lg:border-t-0" : ""}`} aria-label="Espacios del plano">
           <h2 className="mb-2 px-2 text-sm font-bold text-slate-800">Espacios del CITT</h2>
           <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 xl:grid-cols-1">
             {zonas.map((zona) => {
