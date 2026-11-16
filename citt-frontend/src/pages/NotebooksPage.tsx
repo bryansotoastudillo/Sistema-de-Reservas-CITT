@@ -1,3 +1,4 @@
+import { rolesGestionCitt } from "../utils/roles";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import api from "../api/axiosConfig";
@@ -384,7 +385,7 @@ function VistaNotebooks() {
 
 export function NotebooksPage() {
   const rol = localStorage.getItem("activeRole");
-  if (rol !== "COORDINADOR" && rol !== "DIRECTOR") {
+  if (!rolesGestionCitt.includes(rol ?? "")) {
     return <p className="rounded-lg border border-slate-200 bg-white p-5">Esta vista está disponible para Coordinación y Dirección.</p>;
   }
   return <VistaNotebooks />;

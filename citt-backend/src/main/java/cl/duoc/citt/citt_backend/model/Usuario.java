@@ -11,6 +11,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -52,9 +53,20 @@ public class Usuario implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return roles.stream()
-                .map(rol -> new SimpleGrantedAuthority("ROLE_" + rol.getNombre()))
+        Set<String> permisos = nombresRoles();
+        if (permisos.contains("ADMINISTRATIVO")) permisos.addAll(Set.of("DOCENTE", "COORDINADOR"));
+        return permisos.stream()
+                .map(rol -> new SimpleGrantedAuthority("ROLE_" + rol))
                 .collect(Collectors.toList());
+    }
+
+    public Set<String> nombresRoles() {
+        return roles.stream().map(Rol::getNombre).collect(Collectors.toCollection(HashSet::new));
+    }
+
+    public boolean tienePermisoDe(String... roles) {
+        var autoridades = getAuthorities();
+        return Arrays.stream(roles).anyMatch(rol -> autoridades.contains(new SimpleGrantedAuthority("ROLE_" + rol)));
     }
 
     @Override

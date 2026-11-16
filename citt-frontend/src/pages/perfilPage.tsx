@@ -22,7 +22,8 @@ const getIconoPorRol = (rol: string) => {
   switch (rol) {
     case 'ALUMNO':       return <GraduationCap size={32} />;
     case 'DOCENTE':      return <BookOpen size={32} />;
-    case 'COORDINADOR':  return <ClipboardList size={32} />;
+    case 'COORDINADOR':
+    case 'ADMINISTRATIVO': return <ClipboardList size={32} />;
     case 'DIRECTOR':     return <Crown size={32} />;
     case 'AYUDANTE':     return <Wrench size={32} />;
     default:             return <Users size={32} />;

@@ -8,8 +8,10 @@ import SessionTimeout from '../componentes/sessionTimeout';
 import Modal from '../componentes/Modal';
 import api from '../api/axiosConfig';
 import { isAxiosError } from 'axios';
+import { nombreRol, rolesGestionCitt } from '../utils/roles';
 
-const TODOS_LOS_ROLES = ['ALUMNO', 'DOCENTE', 'AYUDANTE', 'COORDINADOR', 'DIRECTOR'];
+const TODOS_LOS_ROLES = ['ALUMNO', 'DOCENTE', 'AYUDANTE', ...rolesGestionCitt];
+type ReglaDominio = { dominio: string; rol: string; permiteAutorregistro: boolean };
 
 interface UsuarioData {
   id: number;
@@ -33,6 +35,7 @@ const UsuariosPage = () => {
 
   // Estados del formulario de registro
   const [emailNuevo, setEmailNuevo] = useState('');
+  const [reglasDominio, setReglasDominio] = useState<ReglaDominio[]>([]);
   const [rolesSeleccionados, setRolesSeleccionados] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -50,6 +53,8 @@ const UsuariosPage = () => {
   const [errorEstado, setErrorEstado] = useState('');
   const esDirector = rolActivoActual === 'DIRECTOR';
   const rolesGestionables = TODOS_LOS_ROLES.filter(rol => esDirector || rol !== 'DIRECTOR');
+  const dominioNuevo = emailNuevo.trim().toLowerCase().split('@')[1];
+  const rolPorDefecto = reglasDominio.find(regla => regla.dominio === dominioNuevo)?.rol;
 
 
   useEffect(() => {
@@ -71,12 +76,14 @@ const UsuariosPage = () => {
         localStorage.setItem('activeRole', activeRole);
         setRolActivoActual(activeRole);
 
-        if (activeRole !== 'DIRECTOR' && activeRole !== 'COORDINADOR') {
+        if (!rolesGestionCitt.includes(activeRole)) {
           setAccesoDenegado(true);
           return;
         }
 
-        // Si tiene permiso, la lista se cargará con el useEffect de currentPage
+        api.get<ReglaDominio[]>('/auth/dominios-registro')
+          .then(({ data }) => setReglasDominio(data))
+          .catch(() => { /* El servidor aplica el rol aunque no se muestre la vista previa. */ });
       } catch (error) {
         navigate('/');
       }
@@ -134,11 +141,6 @@ const UsuariosPage = () => {
       setEmailError('La dirección de correo está incompleta.');
       return;
     }
-    if (rolesSeleccionados.length === 0) {
-      setErrorMsg('Debe seleccionar al menos un rol para el usuario.');
-      return;
-    }
-
     setIsLoading(true);
 
     try {
@@ -376,16 +378,32 @@ const UsuariosPage = () => {
                     required
                     disabled={isLoading}
                   />
+                  {reglasDominio.length > 0 && <details className="mt-2 text-xs text-slate-600">
+                    <summary className="cursor-pointer font-semibold">Dominios admitidos</summary>
+                    <ul className="mt-2 space-y-1">
+                      {reglasDominio.map(regla => <li key={regla.dominio}>
+                        @{regla.dominio} · {nombreRol(regla.rol)}{regla.permiteAutorregistro ? "" : " · Alta manual"}
+                      </li>)}
+                    </ul>
+                  </details>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-3">Roles (Selección múltiple)</label>
+                  <p className="mb-1 text-sm font-bold text-slate-700">Roles asignados</p>
+                  {rolPorDefecto
+                    ? <p className="mb-3 text-sm text-slate-600">El rol automático es <strong>{nombreRol(rolPorDefecto)}</strong>.</p>
+                    : <p className="mb-3 text-sm text-slate-600">El correo institucional determina el rol inicial.</p>}
+                  <p className="mb-2 text-xs text-slate-600">Puedes seleccionar roles adicionales.</p>
                   <div className="grid grid-cols-2 gap-2">
                     {rolesGestionables.map(rol => {
-                      const seleccionado = rolesSeleccionados.includes(rol);
+                      const automatico = rol === rolPorDefecto;
+                      const seleccionado = automatico || rolesSeleccionados.includes(rol);
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={rol}
+                          disabled={automatico || isLoading}
+                          aria-pressed={seleccionado}
                           onClick={() => handleToggleRol(rol)}
                           className={`p-2.5 rounded-xl border-2 cursor-pointer flex items-center gap-2 transition-all duration-200 active:scale-95 select-none
                             ${seleccionado
@@ -395,8 +413,8 @@ const UsuariosPage = () => {
                           <div className={`flex items-center justify-center w-4 h-4 rounded border ${seleccionado ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300'}`}>
                             {seleccionado && <CheckCircle size={12} />}
                           </div>
-                          <span className="font-bold text-xs truncate" title={rol}>{rol}</span>
-                        </div>
+                          <span className="font-bold text-xs truncate" title={nombreRol(rol)}>{nombreRol(rol)}</span>
+                        </button>
                       );
                     })}
                   </div>

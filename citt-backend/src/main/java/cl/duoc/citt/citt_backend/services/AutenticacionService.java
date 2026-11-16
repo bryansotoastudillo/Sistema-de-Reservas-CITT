@@ -7,12 +7,12 @@ import cl.duoc.citt.citt_backend.model.Usuario;
 import cl.duoc.citt.citt_backend.repositories.RolRepository;
 import cl.duoc.citt.citt_backend.repositories.UsuarioRepository;
 import cl.duoc.citt.citt_backend.security.JwtUtilidades;
+import cl.duoc.citt.citt_backend.security.DominiosInstitucionales;
 import cl.duoc.citt.citt_backend.exception.ReglaNegocioException;
 import cl.duoc.citt.citt_backend.repositories.RefreshTokenRepository;
 import cl.duoc.citt.citt_backend.model.RecuperarPasswordToken;
 import cl.duoc.citt.citt_backend.repositories.RecuperarPasswordRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -46,31 +48,27 @@ public class AutenticacionService {
     private final RefreshTokenService refreshTokenService;
     private final RefreshTokenRepository refreshTokenRepository;
     private final RecuperarPasswordRepository passwordRecuperarRepository;
+    private final DominiosInstitucionales dominios;
 
-    // Dominios inyectados desde application.properties para fácil mantenimiento
-    @Value("${app.dominios.alumno:@duocuc.cl}")
-    private String dominioAlumno;
-    @Value("${app.dominios.docente:@profesor.duoc.cl}")
-    private String dominioDocente;
-    @Value("${app.dominios.manual:@duoc.cl}")
-    private String dominioManual;
+    public List<DominiosInstitucionales.Regla> dominiosRegistro() {
+        return dominios.listar();
+    }
 
     /**
      * REGISTRO MANUAL: Realizado por un Administrador/Coordinador.
      */
     public RegistroResponseDTO registrar(RegistroRequestDTO solicitud) {
-        if (solicitud.getEmail() == null || solicitud.getRolesNombres() == null || solicitud.getRolesNombres().isEmpty()) {
-            throw new ReglaNegocioException("Faltan datos obligatorios: email y roles");
-        }
-
-        // Valida que el correo sea institucional
-        validarCorreoInstitucional(solicitud.getEmail());
+        var regla = dominios.exigirDominio(solicitud.getEmail());
 
         if (usuarioRepository.findByEmail(solicitud.getEmail()).isPresent()) {
             throw new ReglaNegocioException("El correo electrónico ya se encuentra registrado");
         }
 
-        Set<Rol> roles = solicitud.getRolesNombres().stream()
+        Set<String> nombres = new HashSet<>();
+        if (regla.rol() != null) nombres.add(regla.rol());
+        if (solicitud.getRolesNombres() != null) nombres.addAll(solicitud.getRolesNombres());
+        if (nombres.isEmpty()) throw new ReglaNegocioException("Selecciona al menos un rol para este correo.");
+        Set<Rol> roles = nombres.stream()
                 .map(nombre -> rolRepository.findByNombre(nombre.toUpperCase())
                         .orElseThrow(() -> new ReglaNegocioException("Error: El rol " + nombre + " no existe")))
                 .collect(Collectors.toSet());
@@ -103,15 +101,16 @@ public class AutenticacionService {
             throw new ReglaNegocioException("El correo electrónico es obligatorio");
         }
 
-        // Validación de seguridad centralizada
-        validarCorreoInstitucional(solicitud.getEmail());
+        var regla = dominios.exigirDominio(solicitud.getEmail());
+        if (!regla.permiteAutorregistro()) {
+            throw new ReglaNegocioException("Este correo requiere registro manual.");
+        }
 
         if (usuarioRepository.findByEmail(solicitud.getEmail()).isPresent()) {
             throw new ReglaNegocioException("El correo electrónico ya se encuentra registrado");
         }
 
-        // Detecta el rol automáticamente basado en el dominio (@duocuc.cl -> ALUMNO)
-        String rolDetectado = detectarRolPorDominio(solicitud.getEmail());
+        String rolDetectado = regla.rol();
 
         Rol rol = rolRepository.findByNombre(rolDetectado)
                 .orElseThrow(() -> new ReglaNegocioException("Error interno: el rol no existe en la BD"));
@@ -139,6 +138,7 @@ public class AutenticacionService {
      * LOGIN: Genera Access Token (JWT) y Refresh Token.
      */
     public AutenticacionResponseDTO iniciarSesion(InicioSesionRequestDTO solicitud) {
+        dominios.exigirDominio(solicitud.getEmail());
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(solicitud.getEmail(), solicitud.getPassword())
         );
@@ -222,31 +222,6 @@ public class AutenticacionService {
         refreshTokenService.eliminarPorUsuario(usuario.getId()); // Cierra sesiones en otros dispositivos
     }
 
-    /**
-     * VALIDACIÓN DE DOMINIOS INSTITUCIONALES
-     */
-    private void validarCorreoInstitucional(String email) {
-        if (email == null || !email.contains("@")) {
-            throw new ReglaNegocioException("Formato de correo inválido.");
-        }
-        String dominio = email.substring(email.lastIndexOf("@")).toLowerCase();
-
-        // Compara contra las propiedades configuradas
-        if (!dominio.equals(dominioAlumno) && !dominio.equals(dominioDocente) && !dominio.equals(dominioManual)) {
-            throw new ReglaNegocioException("Solo se permiten correos de la institución.");
-        }
-    }
-
-    private String detectarRolPorDominio(String email) {
-        String dominio = email.substring(email.lastIndexOf("@")).toLowerCase();
-        if (dominio.equals(dominioAlumno)) return "ALUMNO";
-        if (dominio.equals(dominioDocente)) return "DOCENTE";
-        if (dominio.equals(dominioManual)) {
-            throw new ReglaNegocioException("Correos " + dominioManual + " requieren registro manual.");
-        }
-        throw new ReglaNegocioException("Dominio no institucional.");
-    }
-
     // RENOVACIÓN DE TOKEN
     @Transactional
     public AutenticacionResponseDTO refrescarToken(TokenRefreshRequestDTO solicitud) {
@@ -257,6 +232,7 @@ public class AutenticacionService {
                 .map(RefreshToken::getUsuario)
                 .filter(Usuario::isEnabled)
                 .map(usuario -> {
+                    dominios.exigirDominio(usuario.getEmail());
                     String token = jwtUtilidades.generarToken(usuario);
                     var nuevoRefreshToken = refreshTokenService.crearRefreshToken(usuario.getId());
                     return AutenticacionResponseDTO.builder()

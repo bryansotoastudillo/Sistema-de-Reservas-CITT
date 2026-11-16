@@ -1,3 +1,4 @@
+import { rolesGestionCitt } from "../utils/roles";
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useSeguridad } from "../hooks/useSeguridad"; 
@@ -16,8 +17,8 @@ import type { Espacio } from "../hooks/useOcupacionEspacios";
 const EspaciosPage = () => {
   const { isVerificando } = useSeguridad();
   const rolActivo = localStorage.getItem("activeRole") || "";
-  const isAdminArea = ["ADMIN", "DIRECTOR", "COORDINADOR"].includes(rolActivo.toUpperCase());
-  const puedeGestionarEstado = ["DIRECTOR", "COORDINADOR"].includes(rolActivo.toUpperCase());
+  const isAdminArea = ["ADMIN", ...rolesGestionCitt].includes(rolActivo.toUpperCase());
+  const puedeGestionarEstado = rolesGestionCitt.includes(rolActivo.toUpperCase());
   const { consulta, actualizar: fetchEspacios } = useOcupacionEspacios(!isVerificando && isAdminArea);
   const espacios = typeof consulta === "object" ? consulta.espacios : [];
 

@@ -14,7 +14,8 @@ const getIconoPorRol = (rol: string) => {
   switch (rol) {
     case 'ALUMNO':       return <GraduationCap size={32} />;
     case 'DOCENTE':      return <BookOpen size={32} />;
-    case 'COORDINADOR':  return <ClipboardList size={32} />;
+    case 'COORDINADOR':
+    case 'ADMINISTRATIVO': return <ClipboardList size={32} />;
     case 'DIRECTOR':     return <Crown size={32} />;
     case 'AYUDANTE':     return <Wrench size={32} />;
     default:             return <Users size={32} />;
@@ -292,7 +293,7 @@ const LoginPage = () => {
       setEmail('');
       setTimeout(() => changeView('login'), 4000);
     } catch (error: any) {
-      const msg = error.response?.data?.mensaje || 'Error al registrar la cuenta. Solo se permiten correos @duocuc.cl o @profesor.duoc.cl';
+      const msg = error.response?.data?.mensaje || 'Error al registrar la cuenta. Usa un correo institucional habilitado para autorregistro.';
       setErrorMsg(msg);
     } finally {
       setIsLoading(false);

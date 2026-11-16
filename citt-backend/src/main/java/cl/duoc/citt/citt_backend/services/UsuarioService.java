@@ -8,6 +8,7 @@ import cl.duoc.citt.citt_backend.model.Usuario;
 import cl.duoc.citt.citt_backend.repositories.RolRepository;
 import cl.duoc.citt.citt_backend.repositories.UsuarioRepository;
 import cl.duoc.citt.citt_backend.exception.ReglaNegocioException;
+import cl.duoc.citt.citt_backend.security.DominiosInstitucionales;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -29,6 +30,7 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
     private final RefreshTokenService refreshTokenService;
+    private final DominiosInstitucionales dominios;
 
     @Transactional
     public UsuarioResponseDTO cambiarEstado(Long id, boolean habilitado, String director) {
@@ -112,7 +114,10 @@ public class UsuarioService {
         exigirDirectorParaRoles(usuarioExistente.getRoles());
 
         // Actualizamos el campo email
-        usuarioExistente.setEmail(usuarioActualizado.getEmail());
+        if (!usuarioExistente.getEmail().equals(usuarioActualizado.getEmail())) {
+            dominios.exigirDominio(usuarioActualizado.getEmail());
+            usuarioExistente.setEmail(usuarioActualizado.getEmail());
+        }
 
         // Si la petición trae roles, buscamos los nuevos objetos Rol en la BD y los reemplazamos
         if (usuarioActualizado.getRolesNombres() != null && !usuarioActualizado.getRolesNombres().isEmpty()) {

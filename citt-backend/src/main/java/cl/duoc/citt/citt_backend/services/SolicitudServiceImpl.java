@@ -74,11 +74,7 @@ public class SolicitudServiceImpl implements SolicitudService {
         Boolean pideExclusividad = dto.getExclusividad() != null ? dto.getExclusividad() : false;
 
         if (pideExclusividad) {
-            boolean hasPermission = usuario.getRoles().stream()
-                    .anyMatch(r -> {
-                        String nombre = r.getNombre().toUpperCase();
-                        return nombre.equals("DOCENTE") || nombre.equals("DIRECTOR") || nombre.equals("COORDINADOR");
-                    });
+            boolean hasPermission = usuario.tienePermisoDe("DOCENTE", "DIRECTOR", "COORDINADOR");
 
             if (!hasPermission) {
                 throw new ReglaNegocioException("Solo Docentes, Directores y Coordinadores pueden solicitar la exclusividad del CITT.");
@@ -266,8 +262,7 @@ public class SolicitudServiceImpl implements SolicitudService {
             Usuario adminUser = usuarioRepository.findByEmail(emailAdmin)
                     .orElseThrow(() -> new ReglaNegocioException("Administrador no encontrado"));
             
-            boolean esAltaDireccion = adminUser.getRoles().stream()
-                    .anyMatch(r -> r.getNombre().equalsIgnoreCase("COORDINADOR") || r.getNombre().equalsIgnoreCase("DIRECTOR"));
+            boolean esAltaDireccion = adminUser.tienePermisoDe("COORDINADOR", "DIRECTOR");
             
             if (!esAltaDireccion) {
                 throw new ReglaNegocioException("Prohibido: No puedes gestionar (aprobar o rechazar) tus propias solicitudes. Espera a que otro administrador lo haga.");
@@ -279,8 +274,7 @@ public class SolicitudServiceImpl implements SolicitudService {
             Usuario adminUser = usuarioRepository.findByEmail(emailAdmin)
                     .orElseThrow(() -> new ReglaNegocioException("Administrador no encontrado"));
             
-            boolean esAltaDireccion = adminUser.getRoles().stream()
-                    .anyMatch(r -> r.getNombre().equalsIgnoreCase("COORDINADOR") || r.getNombre().equalsIgnoreCase("DIRECTOR"));
+            boolean esAltaDireccion = adminUser.tienePermisoDe("COORDINADOR", "DIRECTOR");
             
             if (!esAltaDireccion) {
                 throw new ReglaNegocioException("Prohibido: Solo Coordinadores y Directores pueden gestionar solicitudes de espacios.");
@@ -332,8 +326,7 @@ public class SolicitudServiceImpl implements SolicitudService {
             Usuario adminUser = usuarioRepository.findByEmail(emailAdmin)
                     .orElseThrow(() -> new ReglaNegocioException("Administrador no encontrado"));
             
-            boolean esAltaDireccion = adminUser.getRoles().stream()
-                    .anyMatch(r -> r.getNombre().equalsIgnoreCase("COORDINADOR") || r.getNombre().equalsIgnoreCase("DIRECTOR"));
+            boolean esAltaDireccion = adminUser.tienePermisoDe("COORDINADOR", "DIRECTOR");
             
             if (!esAltaDireccion) {
                 throw new ReglaNegocioException("Prohibido: No puedes entregar recursos físicos de tus propias solicitudes.");
@@ -345,8 +338,7 @@ public class SolicitudServiceImpl implements SolicitudService {
             Usuario adminUser = usuarioRepository.findByEmail(emailAdmin)
                     .orElseThrow(() -> new ReglaNegocioException("Administrador no encontrado"));
             
-            boolean esAltaDireccion = adminUser.getRoles().stream()
-                    .anyMatch(r -> r.getNombre().equalsIgnoreCase("COORDINADOR") || r.getNombre().equalsIgnoreCase("DIRECTOR"));
+            boolean esAltaDireccion = adminUser.tienePermisoDe("COORDINADOR", "DIRECTOR");
             
             if (!esAltaDireccion) {
                 throw new ReglaNegocioException("Prohibido: Solo Coordinadores y Directores pueden gestionar solicitudes de espacios.");
@@ -431,8 +423,7 @@ public class SolicitudServiceImpl implements SolicitudService {
             Usuario adminUser = usuarioRepository.findByEmail(emailAdmin)
                     .orElseThrow(() -> new ReglaNegocioException("Administrador no encontrado"));
             
-            boolean esAltaDireccion = adminUser.getRoles().stream()
-                    .anyMatch(r -> r.getNombre().equalsIgnoreCase("COORDINADOR") || r.getNombre().equalsIgnoreCase("DIRECTOR"));
+            boolean esAltaDireccion = adminUser.tienePermisoDe("COORDINADOR", "DIRECTOR");
             
             if (!esAltaDireccion) {
                 throw new ReglaNegocioException("Prohibido: No puedes gestionar la devolución de tus propias solicitudes.");
@@ -444,8 +435,7 @@ public class SolicitudServiceImpl implements SolicitudService {
             Usuario adminUser = usuarioRepository.findByEmail(emailAdmin)
                     .orElseThrow(() -> new ReglaNegocioException("Administrador no encontrado"));
             
-            boolean esAltaDireccion = adminUser.getRoles().stream()
-                    .anyMatch(r -> r.getNombre().equalsIgnoreCase("COORDINADOR") || r.getNombre().equalsIgnoreCase("DIRECTOR"));
+            boolean esAltaDireccion = adminUser.tienePermisoDe("COORDINADOR", "DIRECTOR");
             
             if (!esAltaDireccion) {
                 throw new ReglaNegocioException("Prohibido: Solo Coordinadores y Directores pueden gestionar solicitudes de espacios.");
@@ -543,11 +533,7 @@ public class SolicitudServiceImpl implements SolicitudService {
         boolean isAlumno = true;
 
         if (usuario != null) {
-            isAdminOrStaff = usuario.getRoles().stream()
-                    .anyMatch(r -> {
-                        String nombre = r.getNombre().toUpperCase();
-                        return nombre.equals("COORDINADOR") || nombre.equals("DIRECTOR") || nombre.equals("DOCENTE") || nombre.equals("AYUDANTE");
-                    });
+            isAdminOrStaff = usuario.tienePermisoDe("COORDINADOR", "DIRECTOR", "DOCENTE", "AYUDANTE");
                     
             isAlumno = usuario.getRoles().stream()
                     .anyMatch(r -> r.getNombre().equalsIgnoreCase("ALUMNO"));

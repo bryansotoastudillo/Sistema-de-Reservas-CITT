@@ -1,3 +1,4 @@
+import { rolesGestionCitt } from "../utils/roles";
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { isAxiosError } from "axios";
@@ -43,7 +44,7 @@ async function prepararImagen(archivo: File): Promise<Blob> {
 
 export function ContenidoPantallaPage() {
   const { isVerificando } = useSeguridad();
-  const tienePermiso = ["COORDINADOR", "DIRECTOR"].includes(localStorage.getItem("activeRole") ?? "");
+  const tienePermiso = rolesGestionCitt.includes(localStorage.getItem("activeRole") ?? "");
   const [catalogo, setCatalogo] = useState<Catalogo>();
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");

@@ -1,3 +1,4 @@
+import { rolesGestionCitt } from "../utils/roles";
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Calendar, Clock, MapPin, Package, FileText, Users, CheckCircle, ArrowLeft } from "lucide-react";
@@ -23,7 +24,7 @@ export const FormularioSolicitudPage: React.FC = () => {
 
   const rolActivo = localStorage.getItem("activeRole") || "ALUMNO";
   const rolUpper = rolActivo.toUpperCase();
-  const canRequestExclusividad = rolUpper.includes("DOCENTE") || rolUpper.includes("DIRECTOR") || rolUpper.includes("COORDINADOR");
+  const canRequestExclusividad = rolUpper.includes("DOCENTE") || rolesGestionCitt.includes(rolUpper);
 
   const state = location.state as {
     seleccionesGlobales?: Record<number, Record<string, number>>;
