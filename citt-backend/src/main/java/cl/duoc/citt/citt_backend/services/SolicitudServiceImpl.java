@@ -102,8 +102,19 @@ public class SolicitudServiceImpl implements SolicitudService {
         }
 
         if (dto.getIdEspacio() != null) {
-            Espacio espacio = espacioRepository.findById(dto.getIdEspacio())
+            Espacio espacio = espacioRepository.bloquearPorId(dto.getIdEspacio())
                     .orElseThrow(() -> new ReglaNegocioException("El espacio solicitado no existe"));
+
+            if (!"DISPONIBLE".equalsIgnoreCase(espacio.getEstado().getNombre())) {
+                throw new ReglaNegocioException("El espacio seleccionado está fuera de servicio.", org.springframework.http.HttpStatus.CONFLICT);
+            }
+            LocalDateTime inicio = dto.getFecha().atTime(dto.getHoraInicio());
+            boolean ocupadoManualmente = pideExclusividad
+                    ? espacioRepository.existsByOcupadoManualmenteHastaAfter(inicio)
+                    : espacio.getOcupadoManualmenteHasta() != null && espacio.getOcupadoManualmenteHasta().isAfter(inicio);
+            if (ocupadoManualmente) {
+                throw new ReglaNegocioException("Hay una ocupación manual vigente en el horario solicitado.", org.springframework.http.HttpStatus.CONFLICT);
+            }
 
             if (solicitud.getCantidadIntegrantes() > espacio.getCapacidad()) {
                 throw new ReglaNegocioException("La cantidad de integrantes supera la capacidad del espacio.");
@@ -200,7 +211,7 @@ public class SolicitudServiceImpl implements SolicitudService {
     @Override
     @Transactional
     public SolicitudResponseDTO cambiarEstado(Long idSolicitud, ActualizarEstadoSolicitudRequestDTO dto, String emailAdmin) {
-        Solicitud solicitud = solicitudRepository.findById(idSolicitud)
+        Solicitud solicitud = solicitudRepository.bloquearPorId(idSolicitud)
                 .orElseThrow(() -> new ReglaNegocioException("Solicitud no encontrada"));
 
         if (solicitud.getUsuario().getEmail().equalsIgnoreCase(emailAdmin)) {
@@ -266,7 +277,7 @@ public class SolicitudServiceImpl implements SolicitudService {
     @Override
     @Transactional
     public SolicitudResponseDTO entregarArticulos(Long idSolicitud, List<Long> idsArticulosEntregados, String emailAdmin) {
-        Solicitud solicitud = solicitudRepository.findById(idSolicitud)
+        Solicitud solicitud = solicitudRepository.bloquearPorId(idSolicitud)
                 .orElseThrow(() -> new ReglaNegocioException("Solicitud no encontrada"));
 
         if (solicitud.getUsuario().getEmail().equalsIgnoreCase(emailAdmin)) {
@@ -453,6 +464,7 @@ public class SolicitudServiceImpl implements SolicitudService {
                     .orElseThrow(() -> new ReglaNegocioException("Estado DAÑADO de espacio no configurado en la BD."));
 
             solicitud.getEspacio().setEstado(danadoEspacio);
+            solicitud.getEspacio().setOcupadoManualmenteHasta(null);
             solicitud.getEspacio().setComentarios("DAÑADO EN RESERVA #" + solicitud.getIdSolicitud() + " - MOTIVO: " + dto.getComentarioEspacio().trim().toUpperCase());
             espacioRepository.save(solicitud.getEspacio());
 

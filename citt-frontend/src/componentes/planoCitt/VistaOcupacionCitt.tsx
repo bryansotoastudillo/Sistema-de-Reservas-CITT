@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarPlus, Maximize, Minimize, Pencil, RefreshCw, RotateCcw, RotateCw, Users, ZoomIn, ZoomOut } from "lucide-react";
 import { isAxiosError } from "axios";
 import { Link } from "react-router-dom";
 import api from "../../api/axiosConfig";
-import type { ConsultaEspacios } from "../../hooks/useOcupacionEspacios";
+import type { ConsultaEspacios, Espacio } from "../../hooks/useOcupacionEspacios";
 import { asociarOcupacion, normalizar } from "./ocupacionPlano";
 import { PlanoCitt } from "./PlanoCitt";
 import { estadosPlano } from "./estadosPlano";
@@ -28,9 +28,11 @@ const horaSede = new Intl.DateTimeFormat("es-CL", {
   hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZone: "America/Santiago",
 });
 
-export function VistaOcupacionCitt({ consulta, actualizar }: {
+export function VistaOcupacionCitt({ consulta, actualizar, onCambiarEstado, children }: {
   consulta: ConsultaEspacios;
   actualizar: () => void;
+  onCambiarEstado?: (espacio: Espacio) => void;
+  children?: ReactNode;
 }) {
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [angulo, setAngulo] = useState(ANGULO_INICIAL);
@@ -307,10 +309,16 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
                   <CalendarPlus size={16} aria-hidden="true" /> Reservar espacio
                 </Link>
               ) : <p>{zonaSeleccionada.espacio ? "Espacio no disponible para reservar." : "Espacio sin datos de reserva."}</p>}
+              {onCambiarEstado && zonaSeleccionada.espacio && <button type="button"
+                onClick={() => { if (zonaSeleccionada.espacio) onCambiarEstado(zonaSeleccionada.espacio); }}
+                className="block rounded-lg border border-slate-300 bg-white px-3 py-2 font-semibold text-[#003b73]">
+                Cambiar estado
+              </button>}
             </div>
           )}
         </aside>
       </div>
+      {children}
     </section>
   );
 }

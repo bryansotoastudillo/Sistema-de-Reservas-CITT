@@ -3,7 +3,9 @@ package cl.duoc.citt.citt_backend.repositories;
 import cl.duoc.citt.citt_backend.model.EstadoSolicitud;
 import cl.duoc.citt.citt_backend.model.Solicitud;
 import cl.duoc.citt.citt_backend.model.Usuario;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -11,9 +13,14 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Solicitud s where s.idSolicitud = :id")
+    Optional<Solicitud> bloquearPorId(@Param("id") Long id);
+
 
     List<Solicitud> findByUsuarioOrderByFechaDesc(Usuario usuario);
 
@@ -23,14 +30,38 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
 
     @Query("""
             SELECT s FROM Solicitud s JOIN FETCH s.espacio
-            WHERE s.estadoSolicitud.nombre IN ('EN PROCESO', 'ATRASADO')
+            WHERE s.fechaLiberacionEspacio IS NULL AND (s.estadoSolicitud.nombre IN ('EN PROCESO', 'ATRASADO')
                OR (s.estadoSolicitud.nombre = 'APROBADA'
-                   AND s.fecha = :fecha AND s.horaInicio <= :hora AND s.horaFin > :hora)
+                   AND s.fecha = :fecha AND s.horaInicio <= :hora AND s.horaFin > :hora))
             """)
     List<Solicitud> findOcupacionesActuales(@Param("fecha") LocalDate fecha, @Param("hora") LocalTime hora);
 
+    @Query("""
+            SELECT s.idSolicitud FROM Solicitud s
+            WHERE s.espacio IS NOT NULL AND (s.espacio.id = :id OR s.exclusividad = true)
+              AND s.fechaLiberacionEspacio IS NULL
+              AND (s.estadoSolicitud.nombre IN ('EN PROCESO', 'ATRASADO')
+                OR (s.estadoSolicitud.nombre = 'APROBADA' AND s.fecha = :fecha
+                    AND s.horaInicio <= :hora AND s.horaFin > :hora))
+            ORDER BY s.idSolicitud
+            """)
+    List<Long> idsOcupacionesActualesDelEspacio(@Param("id") Long id, @Param("fecha") LocalDate fecha,
+                                                @Param("hora") LocalTime hora);
+
+    @Query("""
+            SELECT COUNT(s) FROM Solicitud s
+            WHERE s.espacio IS NOT NULL AND (s.espacio.id = :id OR s.exclusividad = true)
+              AND s.fechaLiberacionEspacio IS NULL AND s.estadoSolicitud.nombre IN ('PENDIENTE', 'APROBADA')
+              AND (s.fecha > :hoy OR (s.fecha = :hoy AND s.horaInicio > :hora))
+              AND (s.fecha < :diaLimite OR (s.fecha = :diaLimite AND s.horaInicio < :horaLimite))
+            """)
+    long contarReservasPosteriores(@Param("id") Long id, @Param("hoy") LocalDate hoy,
+                                   @Param("hora") LocalTime hora, @Param("diaLimite") LocalDate diaLimite,
+                                   @Param("horaLimite") LocalTime horaLimite);
+
     // Consulta para verificar si un espacio ya está reservado en un horario específico
     @Query("SELECT COUNT(s) FROM Solicitud s WHERE s.espacio.id = :idEspacio " +
+            "AND s.fechaLiberacionEspacio IS NULL " +
             "AND s.fecha = :fecha " +
             "AND s.estadoSolicitud.nombre IN ('PENDIENTE', 'APROBADA', 'EN PROCESO', 'ATRASADO') " +
             "AND (s.horaInicio < :horaFin AND s.horaFin > :horaInicio)")
@@ -43,6 +74,7 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
 
     //  Solicitud de Exclusividad: Verifica que TODO el CITT esté libre
     @Query("SELECT COUNT(s) FROM Solicitud s WHERE s.fecha = :fecha " +
+            "AND s.fechaLiberacionEspacio IS NULL " +
             "AND s.estadoSolicitud.nombre IN ('PENDIENTE', 'APROBADA', 'EN PROCESO', 'ATRASADO') " +
             "AND (s.horaInicio < :horaFin AND s.horaFin > :horaInicio)")
     int contarCualquierReservaEnHorario(
@@ -53,6 +85,7 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
 
     // Solicitud Común: Bloquea reservas si ya hay una exclusividad activa
     @Query("SELECT COUNT(s) FROM Solicitud s WHERE s.fecha = :fecha " +
+            "AND s.fechaLiberacionEspacio IS NULL " +
             "AND s.exclusividad = true " +
             "AND s.estadoSolicitud.nombre IN ('PENDIENTE', 'APROBADA', 'EN PROCESO', 'ATRASADO') " +
             "AND (s.horaInicio < :horaFin AND s.horaFin > :horaInicio)")
@@ -62,6 +95,7 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
             @Param("horaFin") LocalTime horaFin
     );
 
-    @Query("SELECT s FROM Solicitud s WHERE s.espacio IS NOT NULL AND s.estadoSolicitud.nombre IN ('APROBADA', 'EN PROCESO', 'ATRASADO')")
+    @Query("SELECT s FROM Solicitud s WHERE s.espacio IS NOT NULL AND s.fechaLiberacionEspacio IS NULL " +
+            "AND s.estadoSolicitud.nombre IN ('APROBADA', 'EN PROCESO', 'ATRASADO')")
     List<Solicitud> findSolicitudesParaCalendario();
 }

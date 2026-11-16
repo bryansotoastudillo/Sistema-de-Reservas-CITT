@@ -1,124 +1,81 @@
-import { useState, useEffect } from "react";
-import Modal from "../componentes/Modal";
+import { useState, type FormEvent } from "react";
+import { isAxiosError } from "axios";
 import api from "../api/axiosConfig";
-import { AlertTriangle, Info } from "lucide-react";
+import type { Espacio } from "../hooks/useOcupacionEspacios";
+import Modal from "./Modal";
 
-interface Espacio {
-  id: number;
-  nombre: string;
-  comentarios: string;
-  capacidad: number;
-  estado: string;
-}
+type EstadoManual = "LIBRE" | "OCUPADO" | "FUERA_DE_SERVICIO" | "DANADO";
 
-interface ModalActualizarEstadoProps {
-  isOpen: boolean;
+export function ModalActualizarEstado({ onClose, onSuccess, espacio }: {
   onClose: () => void;
   onSuccess: () => void;
-  espacio: Espacio | null;
-}
+  espacio: Espacio;
+}) {
+  const [estado, setEstado] = useState<EstadoManual>(
+    espacio.estado === "DAÑADO" ? "DANADO" : espacio.estado !== "DISPONIBLE" ? "FUERA_DE_SERVICIO"
+      : espacio.enUsoAhora ? "OCUPADO" : "LIBRE",
+  );
+  const [minutos, setMinutos] = useState("60");
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState("");
 
-export const ModalActualizarEstado = ({ isOpen, onClose, onSuccess, espacio }: ModalActualizarEstadoProps) => {
-  const [estado, setEstado] = useState("DISPONIBLE");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // Sincronizar el estado actual cuando se abre el modal
-  useEffect(() => {
-    if (espacio) {
-      setEstado(espacio.estado ? espacio.estado.toUpperCase() : "DISPONIBLE");
-      setErrorMsg(null);
-    }
-  }, [espacio, isOpen]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!espacio) return;
-
-    setIsSubmitting(true);
-    setErrorMsg(null);
-
+  async function guardar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (guardando) return;
+    setGuardando(true);
+    setError("");
     try {
-      // Como tu backend pide todos los datos en el DTO, enviamos los datos actuales
-      // pero con el nuevo estado seleccionado.
-      await api.put(`/espacios/${espacio.id}`, {
-        nombre: espacio.nombre,
-        capacidad: espacio.capacidad,
-        comentarios: espacio.comentarios,
-        estado: estado
+      await api.patch(`/espacios/${espacio.id}/estado`, {
+        estado,
+        minutos: estado === "OCUPADO" ? Number(minutos) : undefined,
       });
-      
       onSuccess();
-      onClose();
-    } catch (error: any) {
-      setErrorMsg(error.response?.data?.mensaje || "Error al actualizar el estado del espacio.");
+    } catch (respuesta) {
+      const mensaje = isAxiosError<{ mensaje?: string }>(respuesta) ? respuesta.response?.data?.mensaje : undefined;
+      setError(mensaje || "No se pudo actualizar el estado del espacio.");
     } finally {
-      setIsSubmitting(false);
+      setGuardando(false);
     }
-  };
+  }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} titulo="Actualizar Estado del Espacio">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-2">
-        
-        <div className="bg-blue-50 text-blue-800 p-4 rounded-xl flex gap-3 text-sm border border-blue-100 mb-2">
-          <Info className="w-5 h-5 flex-shrink-0 text-blue-500 mt-0.5" />
-          <p>
-            Estás modificando la disponibilidad de <strong>{espacio?.nombre}</strong>. Esto afectará si los alumnos pueden o no solicitar reservas para este lugar.
-          </p>
-        </div>
-
-        {/* SELECTOR DE ESTADOS */}
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-bold text-gray-700">Nuevo Estado</label>
-          <select
-            value={estado}
-            onChange={(e) => setEstado(e.target.value)}
-            className="p-3 border border-gray-300 rounded-lg text-sm bg-white font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-          >
-            <option value="DISPONIBLE">🟢 Disponible (Operativo)</option>
-            <option value="MANTENCION">🟡 En Mantención (Temporal)</option>
-            <option value="DAÑADO">🔴 Dañado / Clausurado</option>
+    <Modal isOpen onClose={() => { if (!guardando) onClose(); }} titulo="Cambiar estado del espacio">
+      <form onSubmit={guardar} className="flex flex-col gap-4">
+        <p className="font-semibold text-slate-800">{espacio.nombre}</p>
+        <label className="grid gap-1 text-sm font-semibold text-slate-700">
+          Nuevo estado
+          <select value={estado} disabled={guardando} onChange={event => setEstado(event.target.value as EstadoManual)}
+            className="rounded-lg border border-slate-300 bg-white p-2.5">
+            <option value="LIBRE">Libre</option>
+            <option value="OCUPADO">Ocupado</option>
+            <option value="FUERA_DE_SERVICIO">Fuera de servicio</option>
+            <option value="DANADO">Fuera de servicio por daño</option>
           </select>
-        </div>
-
-        {/* ADVERTENCIAS DINÁMICAS */}
-        {(estado === "MANTENCION" || estado === "DAÑADO") && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl flex gap-3 text-sm leading-relaxed mt-2 animate-in fade-in zoom-in duration-300">
-            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-500 mt-0.5" />
-            <div>
-              <p className="font-bold">¡Atención!</p>
-              <p className="mt-1">
-                El espacio pasará a estar <strong>inhabilitado para nuevas reservas</strong>. Recuerda revisar el calendario y cancelar/rechazar las solicitudes pendientes que coincidan con este periodo.
-              </p>
-            </div>
-          </div>
+        </label>
+        {estado === "OCUPADO" && (
+          <label className="grid gap-1 text-sm font-semibold text-slate-700">
+            Duración en minutos
+            <input type="number" min={5} max={720} required value={minutos} disabled={guardando}
+              onChange={event => setMinutos(event.target.value)} className="rounded-lg border border-slate-300 p-2.5" />
+          </label>
         )}
-
-        {errorMsg && (
-          <div className="text-red-600 bg-red-50 p-3 rounded-lg text-sm font-medium border border-red-100">
-            {errorMsg}
-          </div>
-        )}
-
-        <div className="flex justify-end gap-3 mt-4 border-t border-gray-100 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold transition-colors cursor-pointer border-none"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors cursor-pointer border-none shadow-sm"
-          >
-            {isSubmitting ? "Guardando..." : "Confirmar Estado"}
+        <p className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
+          {estado === "LIBRE"
+            ? "Si hay una reserva activa, se cierra su uso del espacio y queda en el historial. Si la reserva es exclusiva, el cierre abarca todo el CITT. Los préstamos de equipos mantienen su proceso de devolución."
+            : estado === "OCUPADO"
+              ? "El espacio se ocupa desde ahora y vuelve automáticamente al estado que corresponda cuando termine el plazo."
+              : "El espacio se inhabilita para nuevas reservas. Las solicitudes existentes se mantienen para que puedas revisarlas en el calendario."}
+        </p>
+        {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} disabled={guardando}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold">Cancelar</button>
+          <button type="submit" disabled={guardando}
+            className="rounded-lg bg-[#003b73] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+            {guardando ? "Guardando…" : "Confirmar estado"}
           </button>
         </div>
       </form>
     </Modal>
   );
-};
+}

@@ -3,6 +3,7 @@ package cl.duoc.citt.citt_backend.controllers;
 import cl.duoc.citt.citt_backend.dto.EspacioRequestDTO;
 import cl.duoc.citt.citt_backend.dto.EspacioResponseDTO;
 import cl.duoc.citt.citt_backend.dto.EspacioUpdateDTO;
+import cl.duoc.citt.citt_backend.dto.EspacioEstadoRequest;
 import cl.duoc.citt.citt_backend.services.EspacioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,12 @@ public class EspacioController {
     public ResponseEntity<EspacioResponseDTO> actualizar(@PathVariable Long id,
                                                          @Valid@RequestBody EspacioUpdateDTO dto) {
         return ResponseEntity.ok(service.actualizar(id, dto));
+    }
+
+    @PatchMapping("/{id}/estado")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'DIRECTOR')")
+    public EspacioResponseDTO cambiarEstado(@PathVariable Long id, @Valid @RequestBody EspacioEstadoRequest cambio) {
+        return service.cambiarEstado(id, cambio);
     }
 
     @DeleteMapping("/{id}")
