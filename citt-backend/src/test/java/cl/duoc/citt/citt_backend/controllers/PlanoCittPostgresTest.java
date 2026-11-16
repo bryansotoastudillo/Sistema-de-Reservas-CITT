@@ -14,6 +14,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -24,6 +25,30 @@ class PlanoCittPostgresTest {
     private static final String RUTA = "/api/plano-citt";
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate sql;
+
+    @Test
+    void visorPublicoSoloEntregaDistribucionYOcupacion() throws Exception {
+        sql.update("delete from distribucion_plano_citt where id = 1");
+        sql.update("insert into distribucion_plano_citt values (1, ?, 2)", "{\"P1\":{\"x\":5,\"y\":10,\"giro\":15}}");
+        long espacio = sql.queryForObject("""
+                insert into espacios (nombre, comentarios, capacidad, estado_id)
+                select 'Espacio prueba visor', 'Comentario del personal', 4, e.id
+                from estado_espacio e where nombre = 'DISPONIBLE' returning id
+                """, Long.class);
+        mvc.perform(get(RUTA + "/visor").header("Origin", "https://pantalla.example.test"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "*"))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.revision").value(2))
+                .andExpect(jsonPath("$.posiciones.P1.giro").value(15))
+                .andExpect(jsonPath("$.consultadoEn").exists())
+                .andExpect(jsonPath("$.espacios[?(@.id == " + espacio + ")].enUsoAhora").value(false))
+                .andExpect(jsonPath("$.espacios[?(@.id == " + espacio + ")].comentarios").doesNotExist());
+        mvc.perform(get(RUTA)).andExpect(status().isForbidden());
+        mvc.perform(put(RUTA + "/visor").header("Origin", "https://pantalla.example.test")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+    }
 
     @Test
     void guardaDistribucionCompartidaYProtegeCambiosConcurrentes() throws Exception {

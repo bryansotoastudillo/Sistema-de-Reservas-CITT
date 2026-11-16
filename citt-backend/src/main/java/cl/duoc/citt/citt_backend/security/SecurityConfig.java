@@ -33,6 +33,7 @@ public class SecurityConfig {
                         .csrf(AbstractHttpConfigurer::disable)
                         .authorizeHttpRequests(auth -> auth
                                 .requestMatchers(HttpMethod.POST, "/api/notebooks/reportes", "/api/notebooks/ubicacion").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/plano-citt/visor").permitAll()
                                 .requestMatchers(
                                         "/api/auth/login",
                                         "/api/auth/auto-registro",
@@ -70,6 +71,11 @@ public class SecurityConfig {
                 configuration.setAllowCredentials(true);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+                CorsConfiguration visor = new CorsConfiguration();
+                visor.setAllowedOrigins(List.of("*"));
+                visor.setAllowedMethods(List.of("GET"));
+                visor.setAllowCredentials(false);
+                source.registerCorsConfiguration("/api/plano-citt/visor", visor);
                 source.registerCorsConfiguration("/**", configuration);
                 return source;
         }

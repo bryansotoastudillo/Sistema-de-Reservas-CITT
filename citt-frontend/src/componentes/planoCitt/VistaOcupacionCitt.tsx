@@ -3,7 +3,8 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarPlus, Pencil, Refres
 import { isAxiosError } from "axios";
 import { Link } from "react-router-dom";
 import api from "../../api/axiosConfig";
-import type { ConsultaEspacios, Espacio } from "../../hooks/useOcupacionEspacios";
+import type { ConsultaEspacios } from "../../hooks/useOcupacionEspacios";
+import { asociarOcupacion, normalizar } from "./ocupacionPlano";
 import { PlanoCitt } from "./PlanoCitt";
 import { estadosPlano } from "./estadosPlano";
 import type { EstadoPlano } from "./estadosPlano";
@@ -24,17 +25,6 @@ const movimientos = [
 const horaSede = new Intl.DateTimeFormat("es-CL", {
   hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZone: "America/Santiago",
 });
-
-function normalizar(nombre: string) {
-  return nombre.normalize("NFD").replace(/\p{Diacritic}/gu, "").trim().replace(/\s+/g, " ").toLowerCase();
-}
-
-function estadoDe(espacio?: Espacio): EstadoPlano {
-  if (!espacio || !espacio.estado) return "sinDatos";
-  if (normalizar(espacio.estado) !== "disponible") return "fuera";
-  if (typeof espacio.enUsoAhora !== "boolean") return "sinDatos";
-  return espacio.enUsoAhora ? "ocupado" : "libre";
-}
 
 export function VistaOcupacionCitt({ consulta, actualizar }: {
   consulta: ConsultaEspacios;
@@ -107,12 +97,7 @@ export function VistaOcupacionCitt({ consulta, actualizar }: {
   }
 
   const espacios = typeof consulta === "object" ? consulta.espacios : [];
-  const zonas = zonasCitt.map((zona) => {
-    const nombres = [zona.nombre, zona.alias ?? zona.nombre, ...(zona.otrosNombres ?? [])].map(normalizar);
-    const coincidencias = espacios.filter((espacio) => nombres.includes(normalizar(espacio.nombre)));
-    const espacio = coincidencias.length === 1 ? coincidencias[0] : undefined;
-    return { ...zona, espacio, estado: estadoDe(espacio) };
-  });
+  const zonas = asociarOcupacion(espacios);
   const estados = Object.fromEntries(zonas.map((zona) => [zona.clave, zona.estado]));
   const zonaSeleccionada = zonas.find((zona) => zona.clave === seleccion);
 
