@@ -15,6 +15,7 @@ const RUTAS_NOMBRES: Record<string, string> = {
   "/espacios": "Gestión de Espacios",
   "/contenido-pantalla": "Contenido de pantalla",
   "/solicitar-reserva": "Reserva de Espacios",
+  "/regularizar-reserva": "Regularizar reserva",
   "/crear-solicitud": "Nueva Solicitud",
   "/historial-espacios": "Historial de Solicitudes",
   "/calendario": "Calendario",

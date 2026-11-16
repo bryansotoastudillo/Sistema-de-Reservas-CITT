@@ -68,6 +68,9 @@ public class Solicitud {
     @Column(name = "registro_autogestion", length = 500)
     private String registroAutogestion;
 
+    @Column(name = "reserva_regularizada")
+    private Boolean reservaRegularizada;
+
     // Uso externo: destino al que se llevarán los artículos fuera del CITT
     @Column(name = "destino_externo", length = 300)
     private String destinoExterno;

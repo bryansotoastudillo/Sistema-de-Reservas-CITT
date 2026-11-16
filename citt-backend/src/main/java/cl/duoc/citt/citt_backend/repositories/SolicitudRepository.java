@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
@@ -95,7 +96,23 @@ public interface SolicitudRepository extends JpaRepository<Solicitud, Long> {
             @Param("horaFin") LocalTime horaFin
     );
 
-    @Query("SELECT s FROM Solicitud s WHERE s.espacio IS NOT NULL AND s.fechaLiberacionEspacio IS NULL " +
-            "AND s.estadoSolicitud.nombre IN ('APROBADA', 'EN PROCESO', 'ATRASADO')")
+    @Query("""
+            SELECT COUNT(s) FROM Solicitud s WHERE s.espacio IS NOT NULL
+              AND (s.espacio.id = :id OR s.exclusividad = true)
+              AND s.fecha = :fecha
+              AND s.estadoSolicitud.nombre IN ('PENDIENTE', 'APROBADA', 'EN PROCESO', 'ATRASADO', 'FINALIZADA')
+              AND s.horaInicio < :fin AND s.horaFin > :inicio
+              AND (s.fechaLiberacionEspacio IS NULL OR s.fechaLiberacionEspacio > :fechaHoraInicio)
+              AND (s.fechaDevolucionReal IS NULL OR s.fechaDevolucionReal > :fechaHoraInicio)
+            """)
+    long contarChoquesRegularizacion(@Param("id") Long espacio, @Param("fecha") LocalDate fecha,
+                                     @Param("inicio") LocalTime inicio, @Param("fin") LocalTime fin,
+                                     @Param("fechaHoraInicio") LocalDateTime fechaHoraInicio);
+
+    @Query("""
+            SELECT s FROM Solicitud s WHERE s.espacio IS NOT NULL AND
+              ((s.fechaLiberacionEspacio IS NULL AND s.estadoSolicitud.nombre IN ('APROBADA', 'EN PROCESO', 'ATRASADO'))
+                OR (s.reservaRegularizada = true AND s.estadoSolicitud.nombre = 'FINALIZADA'))
+            """)
     List<Solicitud> findSolicitudesParaCalendario();
 }
