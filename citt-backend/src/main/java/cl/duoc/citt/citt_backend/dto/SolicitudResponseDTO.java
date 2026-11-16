@@ -41,6 +41,7 @@ public class SolicitudResponseDTO {
 
     // Autogestión de solicitudes
     private String registroAutogestion;
+    private boolean reservaRegularizada;
 
     // Uso externo
     private String destinoExterno;

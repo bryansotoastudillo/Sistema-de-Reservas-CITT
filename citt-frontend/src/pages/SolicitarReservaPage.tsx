@@ -5,7 +5,8 @@ import api from "../api/axiosConfig";
 import EstadoActualEspacios from "../componentes/EstadoActualEspacios";
 import BarraOcupacion from "../componentes/BarraOcupacion";
 
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { puedeRegularizarReserva } from "./RegularizarReservaPage";
 
 interface Espacio {
   id: number;
@@ -159,6 +160,12 @@ export const SolicitarReservaPage: React.FC = () => {
                       esDisponible={esOperativo}
                       onReservarClick={() => navigate("/crear-solicitud", { state: { idEspacio: espacio.id, nombreEspacio: espacio.nombre } })}
                     />
+                    {puedeRegularizarReserva(rolActivo) && (
+                      <Link to={`/regularizar-reserva?espacio=${espacio.id}`}
+                        className="mt-2 rounded-lg border border-slate-300 px-3 py-2 text-center text-sm font-semibold text-[#003b73] hover:bg-slate-50">
+                        Regularizar uso
+                      </Link>
+                    )}
                   </div>
                 </div>
               );

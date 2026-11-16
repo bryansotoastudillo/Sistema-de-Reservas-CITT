@@ -1,6 +1,7 @@
 package cl.duoc.citt.citt_backend.services;
 
 import cl.duoc.citt.citt_backend.dto.RequerimientoDTO;
+import cl.duoc.citt.citt_backend.dto.RegularizarReservaRequest;
 import cl.duoc.citt.citt_backend.dto.SolicitudRequestDTO;
 import cl.duoc.citt.citt_backend.dto.SolicitudResponseDTO;
 import cl.duoc.citt.citt_backend.dto.ActualizarEstadoSolicitudRequestDTO;
@@ -9,12 +10,14 @@ import cl.duoc.citt.citt_backend.model.*;
 import cl.duoc.citt.citt_backend.repositories.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,6 +25,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class SolicitudServiceImpl implements SolicitudService {
+    private static final ZoneId ZONA_CITT = ZoneId.of("America/Santiago");
 
     private final SolicitudRepository solicitudRepository;
     private final UsuarioRepository usuarioRepository;
@@ -38,22 +42,7 @@ public class SolicitudServiceImpl implements SolicitudService {
     @Transactional
     public SolicitudResponseDTO crearSolicitud(SolicitudRequestDTO dto, String emailUsuario) {
 
-        if (dto.getHoraInicio().isAfter(dto.getHoraFin()) || dto.getHoraInicio().equals(dto.getHoraFin())) {
-            throw new ReglaNegocioException("La hora de inicio debe ser anterior a la hora de fin.");
-        }
-
-        // Validar duración mínima de 15 minutos
-        long duracionMinutos = java.time.Duration.between(dto.getHoraInicio(), dto.getHoraFin()).toMinutes();
-        if (duracionMinutos < 15) {
-            throw new ReglaNegocioException("El mínimo de tiempo de uso de una solicitud es de 15 minutos.");
-        }
-
-        LocalTime apertura = LocalTime.of(8, 0);
-        LocalTime cierre = LocalTime.of(22, 0);
-
-        if (dto.getHoraInicio().isBefore(apertura) || dto.getHoraFin().isAfter(cierre)) {
-            throw new ReglaNegocioException("El horario de reservas del CITT es estrictamente entre las 08:00 y las 22:00 horas.");
-        }
+        validarHorario(dto.getHoraInicio(), dto.getHoraFin());
 
         if (dto.getFecha().isBefore(LocalDate.now())) {
             throw new ReglaNegocioException("La fecha de la reserva no puede estar en el pasado.");
@@ -187,6 +176,65 @@ public class SolicitudServiceImpl implements SolicitudService {
         SolicitudResponseDTO creada = mapToDTO(solicitudRepository.save(solicitud));
         eventos.publishEvent(new NotificacionNuevaSolicitud.SolicitudCreada(creada));
         return creada;
+    }
+
+    @Override
+    @Transactional
+    public SolicitudResponseDTO regularizarReserva(RegularizarReservaRequest dto, String emailUsuario) {
+        validarHorario(dto.horaInicio(), dto.horaFin());
+        LocalDateTime ahora = LocalDateTime.now(ZONA_CITT);
+        LocalDateTime inicio = dto.fecha().atTime(dto.horaInicio());
+        LocalDateTime fin = dto.fecha().atTime(dto.horaFin());
+        if (inicio.isAfter(ahora)) {
+            throw new ReglaNegocioException("La regularización es para un uso que ya comenzó.");
+        }
+        boolean vigente = fin.isAfter(ahora);
+        Usuario usuario = usuarioRepository.findByEmail(emailUsuario)
+                .orElseThrow(() -> new ReglaNegocioException("Usuario no encontrado"));
+        Espacio espacio = espacioRepository.bloquearPorId(dto.idEspacio())
+                .orElseThrow(() -> new ReglaNegocioException("El espacio solicitado no existe"));
+        if (dto.cantidadIntegrantes() > espacio.getCapacidad()) {
+            throw new ReglaNegocioException("La cantidad de integrantes supera la capacidad del espacio.");
+        }
+        if (vigente && !"DISPONIBLE".equalsIgnoreCase(espacio.getEstado().getNombre())) {
+            throw new ReglaNegocioException("El espacio está fuera de servicio.", HttpStatus.CONFLICT);
+        }
+        if (vigente && espacio.getOcupadoManualmenteHasta() != null && espacio.getOcupadoManualmenteHasta().isAfter(ahora)) {
+            throw new ReglaNegocioException("El espacio tiene una ocupación manual. Coordinación o Dirección debe liberarla antes de regularizar.",
+                    HttpStatus.CONFLICT);
+        }
+        if (solicitudRepository.contarChoquesRegularizacion(espacio.getId(), dto.fecha(), dto.horaInicio(), dto.horaFin(), inicio) > 0
+                || (vigente && !solicitudRepository.idsOcupacionesActualesDelEspacio(
+                        espacio.getId(), ahora.toLocalDate(), ahora.toLocalTime()).isEmpty())) {
+            throw new ReglaNegocioException("El horario se cruza con otra reserva del espacio o una exclusividad del CITT.",
+                    HttpStatus.CONFLICT);
+        }
+
+        String nombreEstado = vigente ? "APROBADA" : "FINALIZADA";
+        EstadoSolicitud estado = estadoSolicitudRepository.findByNombreIgnoreCase(nombreEstado)
+                .orElseThrow(() -> new ReglaNegocioException("Estado no configurado: " + nombreEstado));
+        Solicitud solicitud = Solicitud.builder()
+                .usuario(usuario).espacio(espacio).fecha(dto.fecha()).horaInicio(dto.horaInicio()).horaFin(dto.horaFin())
+                .cantidadIntegrantes(dto.cantidadIntegrantes()).proposito(dto.proposito().strip())
+                .estadoSolicitud(estado).exclusividad(false).reservaRegularizada(true)
+                .registroAutogestion("Reserva de regularización registrada por " + usuario.getEmail())
+                .fechaDevolucionReal(vigente ? null : fin)
+                .build();
+        SolicitudResponseDTO creada = mapToDTO(solicitudRepository.save(solicitud));
+        if (vigente) eventos.publishEvent(new EmailService.SolicitudAprobada(creada));
+        return creada;
+    }
+
+    private void validarHorario(LocalTime inicio, LocalTime fin) {
+        if (!inicio.isBefore(fin)) {
+            throw new ReglaNegocioException("La hora de inicio debe ser anterior a la hora de fin.");
+        }
+        if (java.time.Duration.between(inicio, fin).toMinutes() < 15) {
+            throw new ReglaNegocioException("El mínimo de tiempo de uso de una solicitud es de 15 minutos.");
+        }
+        if (inicio.isBefore(LocalTime.of(8, 0)) || fin.isAfter(LocalTime.of(22, 0))) {
+            throw new ReglaNegocioException("El horario de reservas del CITT es estrictamente entre las 08:00 y las 22:00 horas.");
+        }
     }
 
     @Override
@@ -511,12 +559,17 @@ public class SolicitudServiceImpl implements SolicitudService {
         List<Solicitud> solicitudes = solicitudRepository.findSolicitudesParaCalendario();
         
         return solicitudes.stream().map(s -> {
+            LocalTime fin = s.getHoraFin();
+            if (s.getFechaLiberacionEspacio() != null && s.getFechaLiberacionEspacio().toLocalDate().equals(s.getFecha())) {
+                LocalTime liberado = s.getFechaLiberacionEspacio().toLocalTime();
+                if (liberado.isAfter(s.getHoraInicio()) && liberado.isBefore(fin)) fin = liberado;
+            }
             cl.duoc.citt.citt_backend.dto.CalendarioEventoDTO dto = cl.duoc.citt.citt_backend.dto.CalendarioEventoDTO.builder()
                     .idSolicitud(s.getIdSolicitud())
                     .title(finalIsAlumno && !finalIsAdminOrStaff ? "Ocupado" : s.getProposito())
                     .date(s.getFecha())
                     .start(s.getHoraInicio())
-                    .end(s.getHoraFin())
+                    .end(fin)
                     .nombreEspacio(s.getEspacio() != null ? s.getEspacio().getNombre() : "CITT Completo")
                     .esExclusivo(finalIsAlumno && !finalIsAdminOrStaff ? false : s.getExclusividad())
                     .build();
@@ -537,6 +590,7 @@ public class SolicitudServiceImpl implements SolicitudService {
                 .horaFin(s.getHoraFin())
                 .proposito(s.getProposito())
                 .estado(s.getEstadoSolicitud().getNombre())
+                .reservaRegularizada(Boolean.TRUE.equals(s.getReservaRegularizada()))
                 .cantidadIntegrantes(s.getCantidadIntegrantes())
                 .exclusividad(s.getExclusividad())
                 .emailUsuario(s.getUsuario().getEmail())

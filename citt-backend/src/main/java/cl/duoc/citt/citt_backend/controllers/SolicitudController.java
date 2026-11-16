@@ -1,6 +1,7 @@
 package cl.duoc.citt.citt_backend.controllers;
 
 import cl.duoc.citt.citt_backend.dto.ActualizarEstadoSolicitudRequestDTO;
+import cl.duoc.citt.citt_backend.dto.RegularizarReservaRequest;
 import cl.duoc.citt.citt_backend.dto.SolicitudRequestDTO;
 import cl.duoc.citt.citt_backend.dto.SolicitudResponseDTO;
 import cl.duoc.citt.citt_backend.services.SolicitudService;
@@ -31,6 +32,13 @@ public class SolicitudController {
         // Obtenemos el correo del usuario logueado usando el JWT
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return new ResponseEntity<>(solicitudService.crearSolicitud(dto, email), HttpStatus.CREATED);
+    }
+
+    @PostMapping("/regularizacion")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'AYUDANTE', 'DIRECTOR')")
+    public ResponseEntity<SolicitudResponseDTO> regularizarReserva(@Valid @RequestBody RegularizarReservaRequest dto) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.status(HttpStatus.CREATED).body(solicitudService.regularizarReserva(dto, email));
     }
 
     @Operation(summary = "Ver mis solicitudes", description = "Devuelve el historial de solicitudes del usuario autenticado.")
