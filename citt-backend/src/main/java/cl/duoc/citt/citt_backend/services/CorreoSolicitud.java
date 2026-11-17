@@ -35,6 +35,13 @@ final class CorreoSolicitud {
                 datos, "Revisar en Reservas CITT");
     }
 
+    static CorreoCitt recibida(SolicitudResponseDTO solicitud) {
+        return CorreoCitt.crear("Solicitud #" + solicitud.getIdSolicitud() + " recibida - CITT Duoc UC",
+                Estado.PENDIENTE, "Recibimos tu solicitud",
+                "El equipo CITT registró esta solicitud a tu nombre. Te avisaremos por correo cuando la revise.",
+                datosReserva(solicitud), "Abrir Reservas CITT");
+    }
+
     static CorreoCitt aprobada(SolicitudResponseDTO solicitud) {
         return CorreoCitt.crear("Reserva #" + solicitud.getIdSolicitud() + " confirmada - CITT Duoc UC",
                 Estado.CONFIRMADA, "Tu reserva está confirmada",

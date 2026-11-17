@@ -8,6 +8,9 @@ import cl.duoc.citt.citt_backend.services.SolicitudService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +28,19 @@ import java.util.List;
 public class SolicitudController {
 
     private final SolicitudService solicitudService;
+
+    public record SolicitanteRequest(
+            @NotBlank(message = "Ingresa el correo del solicitante.")
+            @Email(message = "El correo del solicitante no es válido.")
+            @Size(max = 254, message = "El correo del solicitante es demasiado largo.") String correo) {}
+
+    @PatchMapping("/{id}/solicitante")
+    @PreAuthorize("authentication.name.equalsIgnoreCase('admin@duoc.cl')")
+    public ResponseEntity<SolicitudResponseDTO> asignarSolicitante(
+            @PathVariable Long id, @Valid @RequestBody SolicitanteRequest dto) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(solicitudService.asignarSolicitante(id, dto.correo(), email));
+    }
 
     @Operation(summary = "Crear nueva solicitud", description = "El alumno o docente crea una reserva para espacio, artículos o ambos.")
     @PostMapping

@@ -92,6 +92,22 @@ public class Solicitud {
     @JoinColumn(name = "id_usuario", nullable = false)
     private Usuario usuario;
 
+    @Column(name = "correo_solicitante_externo", length = 254)
+    private String correoSolicitanteExterno;
+
+    public String correoSolicitante() {
+        return correoSolicitanteExterno == null ? usuario.getEmail() : correoSolicitanteExterno;
+    }
+
+    public List<String> correosNotificacion() {
+        return correoSolicitanteExterno == null ? List.of(usuario.getEmail())
+                : List.of(usuario.getEmail(), correoSolicitanteExterno);
+    }
+
+    public boolean correspondeA(String correo) {
+        return usuario.getEmail().equalsIgnoreCase(correo) || correoSolicitante().equalsIgnoreCase(correo);
+    }
+
     // Puede ser null si la solicitud es "Solo Artículos"
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_espacio", nullable = true)

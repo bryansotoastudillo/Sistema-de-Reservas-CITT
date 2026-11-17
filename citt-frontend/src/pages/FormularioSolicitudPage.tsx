@@ -23,6 +23,7 @@ export const FormularioSolicitudPage: React.FC = () => {
   const location = useLocation();
 
   const rolActivo = localStorage.getItem("activeRole") || "ALUMNO";
+  const puedeIndicarSolicitante = localStorage.getItem("userEmail")?.toLowerCase() === "admin@duoc.cl";
   const rolUpper = rolActivo.toUpperCase();
   const canRequestExclusividad = rolUpper.includes("DOCENTE") || rolesGestionCitt.includes(rolUpper);
 
@@ -90,6 +91,7 @@ export const FormularioSolicitudPage: React.FC = () => {
   const [horaInicio, setHoraInicio] = useState("");
   const [horaFin, setHoraFin] = useState("");
   const [proposito, setProposito] = useState("");
+  const [correoSolicitante, setCorreoSolicitante] = useState("");
   const [cantidadIntegrantes, setCantidadIntegrantes] = useState<number | "">("");
   const [exclusividad, setExclusividad] = useState(false);
   const [usoExterno, setUsoExterno] = useState(false);
@@ -175,6 +177,7 @@ export const FormularioSolicitudPage: React.FC = () => {
         horaInicio: horaInicioFmt,
         horaFin: horaFinFmt,
         proposito,
+        correoSolicitante: puedeIndicarSolicitante ? correoSolicitante.trim() || null : null,
         idEspacio: idEspacioLocal || null,
         cantidadIntegrantes: cantidadIntegrantes ? Number(cantidadIntegrantes) : null,
         exclusividad: exclusividad,
@@ -227,6 +230,14 @@ export const FormularioSolicitudPage: React.FC = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="p-8 flex flex-col gap-6" noValidate>
+            {puedeIndicarSolicitante && <label className="text-sm font-bold text-gray-700">
+              Correo del solicitante <span className="font-normal text-slate-500">(opcional)</span>
+              <input type="email" value={correoSolicitante} maxLength={254}
+                onChange={e => setCorreoSolicitante(e.target.value)}
+                placeholder="persona@ejemplo.cl"
+                className="mt-2 block w-full rounded-xl border border-gray-200 px-4 py-3 font-normal" />
+              <span className="mt-1 block font-normal text-slate-500">Ingresa su correo si haces la solicitud en nombre de otra persona.</span>
+            </label>}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex flex-col gap-2">

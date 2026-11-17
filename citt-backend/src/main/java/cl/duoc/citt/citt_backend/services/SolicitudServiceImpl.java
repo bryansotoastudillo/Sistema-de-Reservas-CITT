@@ -20,6 +20,8 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import org.springframework.security.access.AccessDeniedException;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,7 +37,6 @@ public class SolicitudServiceImpl implements SolicitudService {
     private final EstadoEspacioRepository estadoEspacioRepository;
     private final EstadoArticuloRepository estadoArticuloRepository;
     private final CategoriaRepository categoriaRepository;
-    private final EmailService emailService;
     private final ApplicationEventPublisher eventos;
 
     @Override
@@ -54,12 +55,18 @@ public class SolicitudServiceImpl implements SolicitudService {
 
         Usuario usuario = usuarioRepository.findByEmail(emailUsuario)
                 .orElseThrow(() -> new ReglaNegocioException("Usuario no encontrado"));
+        String correoExterno = null;
+        if (dto.getCorreoSolicitante() != null && !dto.getCorreoSolicitante().isBlank()) {
+            exigirAdministradorPrincipal(emailUsuario);
+            correoExterno = normalizarSolicitante(dto.getCorreoSolicitante(), emailUsuario);
+        }
 
         EstadoSolicitud estadoPendiente = estadoSolicitudRepository.findByNombreIgnoreCase("PENDIENTE")
                 .orElseThrow(() -> new ReglaNegocioException("Estado PENDIENTE no configurado en la BD."));
 
         Solicitud solicitud = Solicitud.builder()
                 .usuario(usuario)
+                .correoSolicitanteExterno(correoExterno)
                 .fecha(dto.getFecha())
                 .horaInicio(dto.getHoraInicio())
                 .horaFin(dto.getHoraFin())
@@ -171,7 +178,43 @@ public class SolicitudServiceImpl implements SolicitudService {
 
         SolicitudResponseDTO creada = mapToDTO(solicitudRepository.save(solicitud));
         eventos.publishEvent(new NotificacionNuevaSolicitud.SolicitudCreada(creada));
+        if (correoExterno != null) eventos.publishEvent(new NotificacionNuevaSolicitud.AvisoSolicitante(creada));
         return creada;
+    }
+
+    @Override
+    @Transactional
+    public SolicitudResponseDTO asignarSolicitante(Long idSolicitud, String correo, String emailUsuario) {
+        exigirAdministradorPrincipal(emailUsuario);
+        Solicitud solicitud = solicitudRepository.bloquearPorId(idSolicitud)
+                .orElseThrow(() -> new ReglaNegocioException("Solicitud no encontrada"));
+        if (!solicitud.getUsuario().getEmail().equalsIgnoreCase(emailUsuario)) {
+            throw new AccessDeniedException("Solo puedes editar el solicitante de una solicitud que hayas creado.");
+        }
+        String estado = solicitud.getEstadoSolicitud().getNombre();
+        if (!List.of("PENDIENTE", "APROBADA").contains(estado)) {
+            throw new ReglaNegocioException("Solo se puede agregar un solicitante a reservas pendientes o aprobadas.");
+        }
+        String nuevoCorreo = normalizarSolicitante(correo, emailUsuario);
+        if (java.util.Objects.equals(nuevoCorreo, solicitud.getCorreoSolicitanteExterno())) return mapToDTO(solicitud);
+
+        solicitud.setCorreoSolicitanteExterno(nuevoCorreo);
+        SolicitudResponseDTO resultado = mapToDTO(solicitud);
+        if (nuevoCorreo != null) {
+            if ("APROBADA".equals(estado)) eventos.publishEvent(new EmailService.SolicitudAprobada(resultado));
+            else eventos.publishEvent(new NotificacionNuevaSolicitud.AvisoSolicitante(resultado));
+        }
+        return resultado;
+    }
+
+    private static void exigirAdministradorPrincipal(String correo) {
+        if (!"admin@duoc.cl".equalsIgnoreCase(correo)) {
+            throw new AccessDeniedException("Solo admin@duoc.cl puede registrar un solicitante externo.");
+        }
+    }
+
+    private static String normalizarSolicitante(String correo, String creador) {
+        return correo.equalsIgnoreCase(creador) ? null : correo.toLowerCase(Locale.ROOT);
     }
 
     @Override
@@ -258,7 +301,7 @@ public class SolicitudServiceImpl implements SolicitudService {
         Solicitud solicitud = solicitudRepository.bloquearPorId(idSolicitud)
                 .orElseThrow(() -> new ReglaNegocioException("Solicitud no encontrada"));
 
-        if (solicitud.getUsuario().getEmail().equalsIgnoreCase(emailAdmin)) {
+        if (solicitud.correspondeA(emailAdmin)) {
             Usuario adminUser = usuarioRepository.findByEmail(emailAdmin)
                     .orElseThrow(() -> new ReglaNegocioException("Administrador no encontrado"));
             
@@ -304,13 +347,10 @@ public class SolicitudServiceImpl implements SolicitudService {
 
         // 📧 GATILLAR CORREOS AUTOMÁTICOS CONECTADOS A TU EMAILSERVICE REAL
         if (nombreEstado.equals("RECHAZADA")) {
-            emailService.enviarCorreoRechazo(
-                    dtoResponse.getEmailUsuario(),
-                    dtoResponse.getIdSolicitud(),
-                    guardada.getMotivoRechazo()
-            );
+            eventos.publishEvent(new EmailService.SolicitudRechazada(
+                    dtoResponse.getIdSolicitud(), guardada.getMotivoRechazo(), guardada.correosNotificacion()));
         } else if (nombreEstado.equals("APROBADA")) {
-            eventos.publishEvent(new EmailService.SolicitudAprobada(dtoResponse));
+            eventos.publishEvent(new EmailService.SolicitudAprobada(dtoResponse, guardada.correosNotificacion()));
         }
 
         return dtoResponse;
@@ -322,7 +362,7 @@ public class SolicitudServiceImpl implements SolicitudService {
         Solicitud solicitud = solicitudRepository.bloquearPorId(idSolicitud)
                 .orElseThrow(() -> new ReglaNegocioException("Solicitud no encontrada"));
 
-        if (solicitud.getUsuario().getEmail().equalsIgnoreCase(emailAdmin)) {
+        if (solicitud.correspondeA(emailAdmin)) {
             Usuario adminUser = usuarioRepository.findByEmail(emailAdmin)
                     .orElseThrow(() -> new ReglaNegocioException("Administrador no encontrado"));
             
@@ -419,7 +459,7 @@ public class SolicitudServiceImpl implements SolicitudService {
         Solicitud solicitud = solicitudRepository.findById(idSolicitud)
                 .orElseThrow(() -> new ReglaNegocioException("Solicitud no encontrada"));
 
-        if (solicitud.getUsuario().getEmail().equalsIgnoreCase(emailAdmin)) {
+        if (solicitud.correspondeA(emailAdmin)) {
             Usuario adminUser = usuarioRepository.findByEmail(emailAdmin)
                     .orElseThrow(() -> new ReglaNegocioException("Administrador no encontrado"));
             
@@ -561,7 +601,7 @@ public class SolicitudServiceImpl implements SolicitudService {
                     .build();
                     
             if (finalIsAdminOrStaff) {
-                dto.setSolicitanteEmail(s.getUsuario().getEmail());
+                dto.setSolicitanteEmail(s.correoSolicitante());
                 dto.setEstadoActual(s.getEstadoSolicitud().getNombre());
             }
             return dto;
@@ -579,7 +619,8 @@ public class SolicitudServiceImpl implements SolicitudService {
                 .reservaRegularizada(Boolean.TRUE.equals(s.getReservaRegularizada()))
                 .cantidadIntegrantes(s.getCantidadIntegrantes())
                 .exclusividad(s.getExclusividad())
-                .emailUsuario(s.getUsuario().getEmail())
+                .emailUsuario(s.correoSolicitante())
+                .emailCreador(s.getUsuario().getEmail())
                 .nombreEspacio(s.getEspacio() != null ? s.getEspacio().getNombre() : null)
                 .nombresArticulos(
                         s.getArticulos() != null && !s.getArticulos().isEmpty()

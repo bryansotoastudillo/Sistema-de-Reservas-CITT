@@ -23,6 +23,7 @@ public class SolicitudResponseDTO {
 
     // Datos de relaciones (simplificados para el response)
     private String emailUsuario;
+    private String emailCreador;
     private String nombreEspacio; // Será null si es solo artículo
     private List<String> nombresArticulos; // Nombres o Marcas de los artículos
     private List<RequerimientoDTO> requerimientos;

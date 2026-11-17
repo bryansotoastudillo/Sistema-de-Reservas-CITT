@@ -93,19 +93,33 @@ public class EmailService {
         restTemplate.exchange(url, HttpMethod.POST, request, String.class);
     }
 
-    record SolicitudAprobada(SolicitudResponseDTO solicitud) {}
+    record SolicitudAprobada(SolicitudResponseDTO solicitud, List<String> destinatarios) {
+        SolicitudAprobada(SolicitudResponseDTO solicitud) {
+            this(solicitud, List.of(solicitud.getEmailUsuario()));
+        }
+    }
+
+    record SolicitudRechazada(Long id, String motivo, List<String> destinatarios) {}
+
+    @Async
+    @TransactionalEventListener
+    public void notificarRechazo(SolicitudRechazada evento) {
+        evento.destinatarios().forEach(destino -> enviarCorreoRechazo(destino, evento.id(), evento.motivo()));
+    }
 
     @Async
     @TransactionalEventListener
     public void enviarCorreoAprobacion(SolicitudAprobada evento) {
         SolicitudResponseDTO solicitud = evento.solicitud();
-        String destinatario = solicitud.getEmailUsuario();
-        try {
-            enviarCorreo(destinatario, CorreoSolicitud.aprobada(solicitud));
-            log.info("Confirmación de solicitud #{} enviada a {}", solicitud.getIdSolicitud(), destinatario);
-        } catch (Exception e) {
-            log.error("Fallo al enviar confirmación de solicitud #{} a {}: {}",
-                    solicitud.getIdSolicitud(), destinatario, e.getMessage());
+        CorreoCitt correo = CorreoSolicitud.aprobada(solicitud);
+        for (String destinatario : evento.destinatarios()) {
+            try {
+                enviarCorreo(destinatario, correo);
+                log.info("Confirmación de solicitud #{} enviada a {}", solicitud.getIdSolicitud(), destinatario);
+            } catch (Exception e) {
+                log.error("Fallo al enviar confirmación de solicitud #{} a {}: {}",
+                        solicitud.getIdSolicitud(), destinatario, e.getMessage());
+            }
         }
     }
 

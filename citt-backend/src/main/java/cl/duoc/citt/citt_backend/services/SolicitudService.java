@@ -9,6 +9,7 @@ import java.util.List;
 
 public interface SolicitudService {
     SolicitudResponseDTO crearSolicitud(SolicitudRequestDTO dto, String emailUsuario);
+    SolicitudResponseDTO asignarSolicitante(Long idSolicitud, String correo, String emailUsuario);
     SolicitudResponseDTO regularizarReserva(RegularizarReservaRequest dto, String emailUsuario);
     List<SolicitudResponseDTO> obtenerMisSolicitudes(String emailUsuario);
     List<SolicitudResponseDTO> obtenerTodas();

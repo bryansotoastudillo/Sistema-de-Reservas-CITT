@@ -58,11 +58,11 @@ public class SolicitudSchedulerService {
                 s.setEstadoSolicitud(atrasado);
                 solicitudRepository.save(s);
 
-                emailService.enviarCorreoAtraso(
-                        s.getUsuario().getEmail(),
+                s.correosNotificacion().forEach(correo -> emailService.enviarCorreoAtraso(
+                        correo,
                         s.getFecha(),
                         s.getHoraFin()
-                );
+                ));
 
                 log.info("Solicitud #{} marcada como ATRASADA (fecha: {}, hora fin: {})",
                         s.getIdSolicitud(), s.getFecha(), s.getHoraFin());
@@ -79,9 +79,8 @@ public class SolicitudSchedulerService {
                     s.setMotivoRechazo("RECHAZADA AUTOMÁTICAMENTE: LA SOLICITUD NO FUE REVISADA ANTES DEL HORARIO LÍMITE (" + s.getHoraFin() + ").");
                     solicitudRepository.save(s);
 
-                    emailService.enviarCorreoRechazo(
-                            s.getUsuario().getEmail(), s.getIdSolicitud(), s.getMotivoRechazo()
-                    );
+                    s.correosNotificacion().forEach(correo ->
+                            emailService.enviarCorreoRechazo(correo, s.getIdSolicitud(), s.getMotivoRechazo()));
 
                     log.info("Solicitud #{} RECHAZADA automáticamente (PENDIENTE vencida, hora fin: {})",
                             s.getIdSolicitud(), s.getHoraFin());
@@ -99,9 +98,8 @@ public class SolicitudSchedulerService {
                     s.setMotivoRechazo("RECHAZADA AUTOMÁTICAMENTE: LA SOLICITUD FUE APROBADA PERO LOS RECURSOS NUNCA FUERON RETIRADOS ANTES DEL HORARIO LÍMITE (" + s.getHoraFin() + ").");
                     solicitudRepository.save(s);
 
-                    emailService.enviarCorreoRechazo(
-                            s.getUsuario().getEmail(), s.getIdSolicitud(), s.getMotivoRechazo()
-                    );
+                    s.correosNotificacion().forEach(correo ->
+                            emailService.enviarCorreoRechazo(correo, s.getIdSolicitud(), s.getMotivoRechazo()));
 
                     log.info("Solicitud #{} RECHAZADA automáticamente (APROBADA sin retiro, hora fin: {})",
                             s.getIdSolicitud(), s.getHoraFin());

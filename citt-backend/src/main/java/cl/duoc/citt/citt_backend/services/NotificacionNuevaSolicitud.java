@@ -17,6 +17,19 @@ public class NotificacionNuevaSolicitud {
     private final EmailService emailService;
 
     record SolicitudCreada(SolicitudResponseDTO solicitud) {}
+    record AvisoSolicitante(SolicitudResponseDTO solicitud) {}
+
+    @Async
+    @TransactionalEventListener
+    public void avisarSolicitante(AvisoSolicitante evento) {
+        var solicitud = evento.solicitud();
+        try {
+            emailService.enviarCorreo(solicitud.getEmailUsuario(), CorreoSolicitud.recibida(solicitud));
+        } catch (Exception e) {
+            log.warn("Fallo al avisar al solicitante de la solicitud #{}: {}",
+                    solicitud.getIdSolicitud(), e.getClass().getSimpleName());
+        }
+    }
 
     @Async
     @TransactionalEventListener

@@ -6,6 +6,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -31,6 +33,10 @@ public class SolicitudRequestDTO {
     @Schema(example = "desarrollo citt")
     @NotBlank(message = "Debe ingresar el propósito o motivo de la reserva")
     private String proposito;
+
+    @Email(message = "El correo del solicitante no es válido.")
+    @Size(max = 254, message = "El correo del solicitante es demasiado largo.")
+    private String correoSolicitante;
 
     @Schema(example = "1")
     private Long idEspacio;

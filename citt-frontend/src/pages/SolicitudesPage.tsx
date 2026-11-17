@@ -1,5 +1,6 @@
 import { rolesGestionCitt, rolesPersonalCitt } from "../utils/roles";
 import React, { useEffect, useState } from "react";
+import Modal from "../componentes/Modal";
 import { ResumenRecursosCowork, type RecursoCowork } from "../componentes/RecursosCowork";
 import {
   FileText,
@@ -47,6 +48,7 @@ interface SolicitudDTO {
   cantidadIntegrantes: number | null;
   exclusividad: boolean;
   emailUsuario: string;
+  emailCreador?: string;
   nombreEspacio: string | null;
   nombresArticulos: string[];
   requerimientos?: RequerimientoDTO[];
@@ -69,6 +71,7 @@ const ESTADOS_ACTIVOS = ["PENDIENTE", "APROBADA", "EN PROCESO", "ATRASADO"];
 export const SolicitudesPage: React.FC = () => {
   const rolActivo = localStorage.getItem("activeRole") || "";
   const currentUserEmail = localStorage.getItem("userEmail") || "";
+  const esAdminPrincipal = currentUserEmail.toLowerCase() === "admin@duoc.cl";
   const isStaff = rolesPersonalCitt.includes(
     rolActivo.toUpperCase()
   );
@@ -81,6 +84,10 @@ export const SolicitudesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [vistaActiva, setVistaActiva] = useState<"mias" | "todas">(isStaff ? "todas" : "mias");
   const [filtro, setFiltro] = useState("");
+  const [editandoSolicitante, setEditandoSolicitante] = useState<SolicitudDTO | null>(null);
+  const [correoSolicitante, setCorreoSolicitante] = useState("");
+  const [guardandoSolicitante, setGuardandoSolicitante] = useState(false);
+  const [errorSolicitante, setErrorSolicitante] = useState("");
 
   // Modal states
   const [modalDevolver, setModalDevolver] = useState(false);
@@ -130,6 +137,26 @@ export const SolicitudesPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  async function guardarSolicitante(evento: React.FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!editandoSolicitante || guardandoSolicitante) return;
+    setGuardandoSolicitante(true);
+    setErrorSolicitante("");
+    try {
+      const { data } = await api.patch<SolicitudDTO>(`/solicitudes/${editandoSolicitante.idSolicitud}/solicitante`,
+        { correo: correoSolicitante.trim() });
+      const actualizar = (lista: SolicitudDTO[]) => lista.map(s => s.idSolicitud === data.idSolicitud ? data : s);
+      setMisSolicitudes(actualizar);
+      setTodasSolicitudes(actualizar);
+      setEditandoSolicitante(null);
+      setSuccessMsg("Solicitante actualizado.");
+    } catch (error: any) {
+      setErrorSolicitante(error.response?.data?.mensaje || "No se pudo actualizar el solicitante.");
+    } finally {
+      setGuardandoSolicitante(false);
+    }
+  }
 
   const cargarInventario = async () => {
     try {
@@ -277,6 +304,23 @@ export const SolicitudesPage: React.FC = () => {
 
   return (
     <>
+      <Modal isOpen={editandoSolicitante !== null}
+        titulo={`Solicitante de la solicitud #${editandoSolicitante?.idSolicitud ?? ""}`}
+        onClose={() => { if (!guardandoSolicitante) setEditandoSolicitante(null); }}>
+        <form onSubmit={guardarSolicitante} className="space-y-4">
+          <label className="block text-sm font-semibold">
+            Correo del solicitante
+            <input type="email" required maxLength={254} value={correoSolicitante}
+              onChange={e => setCorreoSolicitante(e.target.value)}
+              className="mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2 font-normal" />
+          </label>
+          {errorSolicitante && <p role="alert" className="text-sm text-red-700">{errorSolicitante}</p>}
+          <button type="submit" disabled={guardandoSolicitante}
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            {guardandoSolicitante ? "Guardando…" : "Guardar solicitante"}
+          </button>
+        </form>
+      </Modal>
 
       <div className="flex flex-col gap-6 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
 
@@ -427,6 +471,17 @@ export const SolicitudesPage: React.FC = () => {
                               {s.emailUsuario}
                             </span>
                           </div>
+                          {esAdminPrincipal && s.emailCreador?.toLowerCase() === "admin@duoc.cl"
+                            && ["PENDIENTE", "APROBADA"].includes(s.estado) && (
+                            <button type="button" className="mt-1 text-xs font-semibold text-blue-700 underline"
+                              onClick={() => {
+                                setCorreoSolicitante(s.emailUsuario === s.emailCreador ? "" : s.emailUsuario);
+                                setErrorSolicitante("");
+                                setEditandoSolicitante(s);
+                              }}>
+                              {s.emailUsuario === s.emailCreador ? "Agregar solicitante" : "Editar solicitante"}
+                            </button>
+                          )}
                         </td>
                       )}
                       <td className="p-4 text-sm text-slate-700">
