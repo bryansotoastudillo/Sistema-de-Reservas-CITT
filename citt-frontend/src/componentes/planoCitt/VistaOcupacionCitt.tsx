@@ -233,6 +233,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, onCambiarEstado, chil
             }}>
             <div className={pantallaCompleta ? "h-full" : "min-w-[570px]"}>
               <PlanoCitt estados={estados} seleccion={seleccion} onSeleccion={setSeleccion}
+                nombres={Object.fromEntries(zonas.map(zona => [zona.clave, zona.nombre]))}
                 angulo={angulo} inclinacion={inclinacion} onGirar={girar}
                 zoom={zoom} onZoom={cambiarZoom} ajustarAltura={pantallaCompleta}
                 posiciones={borrador ?? distribucion?.posiciones ?? {}} editar={editar} onMover={mover} />
@@ -303,7 +304,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, onCambiarEstado, chil
               </p>
               {zonaSeleccionada.espacio && normalizar(zonaSeleccionada.espacio.estado ?? "") === "disponible" ? (
                 <Link to="/crear-solicitud"
-                  state={{ idEspacio: zonaSeleccionada.espacio.id, nombreEspacio: zonaSeleccionada.nombre }}
+                  state={{ idEspacio: zonaSeleccionada.espacio.id, nombreEspacio: zonaSeleccionada.espacio.nombre }}
                   aria-label={`Reservar ${zonaSeleccionada.nombre}`}
                   className="inline-flex items-center gap-2 rounded-lg bg-[#003b73] px-3 py-2 font-semibold text-white hover:bg-[#002950]">
                   <CalendarPlus size={16} aria-hidden="true" /> Reservar espacio

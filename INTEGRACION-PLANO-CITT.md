@@ -26,7 +26,7 @@ También puedes usar un iframe con origen
 
 - `revision`: revisión de la distribución guardada.
 - `posiciones`: desplazamientos `x`, `y` y giro opcional `giro`, en grados, por clave del plano.
-- `espacios`: identificador, nombre, estado operativo y `enUsoAhora` calculado a partir de las reservas vigentes.
+- `espacios`: identificador, nombre, estado operativo, `enUsoAhora` y `clavePlano`. La clave vincula el espacio con su zona y se conserva al cambiar el nombre.
 - `consultadoEn`: instante de la consulta en formato ISO 8601.
 
 El endpoint admite CORS sin credenciales y responde con `Cache-Control: no-store`. El mismo módulo exporta `consultarPlanoCitt()` para leer el JSON desde otra página. Para dibujar el plano oficial se necesita el visor, que incluye la geometría base.

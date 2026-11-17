@@ -20,6 +20,8 @@ public class Espacio {
     private Long id;
 
     private String nombre;
+    @Column(name = "clave_plano", length = 3, unique = true)
+    private String clavePlano;
     private String comentarios;
     private Integer capacidad;
 

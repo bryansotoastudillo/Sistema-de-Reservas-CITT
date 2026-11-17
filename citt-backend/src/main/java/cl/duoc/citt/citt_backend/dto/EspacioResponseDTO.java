@@ -14,6 +14,7 @@ public class EspacioResponseDTO {
 
     private Long id;
     private String nombre;
+    private String clavePlano;
     private String comentarios;
     private Integer capacidad;
     private String estado;

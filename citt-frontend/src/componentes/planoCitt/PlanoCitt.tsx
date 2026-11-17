@@ -8,6 +8,7 @@ import type { EstadoPlano } from "./estadosPlano";
 
 type Props = {
   estados: Record<string, EstadoPlano>;
+  nombres?: Record<string, string>;
   seleccion: string | null;
   onSeleccion: (clave: string) => void;
   angulo: number;
@@ -21,7 +22,7 @@ type Props = {
   onMover: (clave: string, dx: number, dy: number) => void;
 };
 
-export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion, onGirar,
+export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, inclinacion, onGirar,
   zoom = 1, onZoom, ajustarAltura = false, posiciones, editar, onMover }: Props) {
   const id = useId();
   const clipPiso = `${id}-piso`;
@@ -170,6 +171,7 @@ export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion
           </g>
         );
         const estado = estadosPlano[estados[zona.clave] ?? "sinDatos"];
+        const nombre = nombres?.[zona.clave] ?? zona.nombre;
         const activo = zona.clave === seleccion;
         const alturaMarcador = zona.alturaMarcador ?? 50;
         const [x, y] = camara.proyectar(zona.marcador, alturaMarcador);
@@ -180,7 +182,7 @@ export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion
             data-objeto-plano={zona.clave}
             role="button"
             tabIndex={0}
-            aria-label={`${zona.nombre}, ${estado.texto}`}
+            aria-label={`${nombre}, ${estado.texto}`}
             aria-pressed={activo}
             className={`${editar ? "cursor-move" : "cursor-pointer"} outline-none focus-visible:[&>circle:last-of-type]:stroke-[#003b73] focus-visible:[&>circle:last-of-type]:stroke-[4]`}
             onClick={() => onSeleccion(zona.clave)}
@@ -191,7 +193,7 @@ export function PlanoCitt({ estados, seleccion, onSeleccion, angulo, inclinacion
               }
             }}
           >
-            <title>{zona.nombre} · {estado.texto}</title>
+            <title>{nombre} · {estado.texto}</title>
             <Prisma camara={camara} base={zona.base} altura={2} fondo={estado.fondo} canto={estado.canto} borde={activo ? "#003b73" : estado.canto} />
             {[...zona.muebles].sort((a, b) => camara.profundidad(a.base) - camara.profundidad(b.base)).map((mueble, indice) => (
               <Mueble3D key={indice} camara={camara} mueble={mueble} />
