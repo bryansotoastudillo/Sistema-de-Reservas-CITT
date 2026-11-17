@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.util.Set;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
@@ -22,6 +23,10 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class PlanoCittController {
     private static final Set<String> CLAVES = Set.of("1", "2", "3", "4", "5", "CI", "ST", "MR", "CW", "P1", "P2", "P3");
+    private static final Pattern CLAVE_MUEBLE =
+            Pattern.compile("MR-(mesa-1|silla-[1-6])|CW-(mesa-[1-9]|silla-([1-9]|1[0-2]))");
+    // Las coordenadas del mueble son relativas a su zona, que también puede girar.
+    private static final int LIMITE_LOCAL = (int) Math.ceil(Math.hypot(786, 484));
     private final JdbcTemplate sql;
     private final ObjectMapper json;
     private final EspacioService espacios;
@@ -59,9 +64,7 @@ public class PlanoCittController {
     public ResponseEntity<Distribucion> guardar(@RequestBody Distribucion distribucion) throws JsonProcessingException {
         var posiciones = distribucion.posiciones();
         if (distribucion.revision() < 0 || distribucion.revision() == Long.MAX_VALUE || posiciones == null
-                || !CLAVES.containsAll(posiciones.keySet()) || posiciones.values().stream().anyMatch(
-                        p -> p == null || !valida(p.x(), 786) || !valida(p.y(), 484)
-                                || (p.giro() != null && (!Double.isFinite(p.giro()) || p.giro() < 0 || p.giro() >= 360)))) {
+                || posiciones.entrySet().stream().anyMatch(entrada -> !posicionValida(entrada.getKey(), entrada.getValue()))) {
             throw new ReglaNegocioException("Distribución del plano inválida");
         }
         long revision = distribucion.revision();
@@ -85,6 +88,16 @@ public class PlanoCittController {
 
     private static boolean valida(Double valor, int maximo) {
         return valor != null && Double.isFinite(valor) && Math.abs(valor) <= maximo;
+    }
+
+    private static boolean posicionValida(String clave, Posicion posicion) {
+        if (posicion == null) return false;
+        boolean mueble = CLAVE_MUEBLE.matcher(clave).matches();
+        return (mueble || CLAVES.contains(clave))
+                && valida(posicion.x(), mueble ? LIMITE_LOCAL : 786)
+                && valida(posicion.y(), mueble ? LIMITE_LOCAL : 484)
+                && (posicion.giro() == null || Double.isFinite(posicion.giro())
+                        && posicion.giro() >= 0 && posicion.giro() < 360);
     }
 
     private static ResponseEntity<Distribucion> respuesta(Distribucion distribucion) {

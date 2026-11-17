@@ -82,7 +82,9 @@ class PlanoCittPostgresTest {
         sql.update("delete from distribucion_plano_citt where id = 1");
         var coordinacion = user("coordinacion").roles("COORDINADOR");
         String cambios = """
-                {"revision":0,"posiciones":{"MR":{"x":12,"y":7},"P2":{"x":-9,"y":17,"giro":15}}}
+                {"revision":0,"posiciones":{"MR":{"x":12,"y":7},"P2":{"x":-9,"y":17,"giro":15},
+                  "MR-mesa-1":{"x":3,"y":0},"MR-silla-6":{"x":0,"y":8},
+                  "CW-mesa-9":{"x":7,"y":0},"CW-silla-12":{"x":0,"y":9,"giro":30}}}
                 """;
         mvc.perform(put(RUTA).with(user("alumno").roles("ALUMNO"))
                         .contentType(MediaType.APPLICATION_JSON).content(cambios))
@@ -96,10 +98,18 @@ class PlanoCittPostgresTest {
         mvc.perform(put(RUTA).with(coordinacion).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"revision\":1,\"posiciones\":{\"P4\":{\"x\":0,\"y\":0}}}"))
                 .andExpect(status().isBadRequest());
+        mvc.perform(put(RUTA).with(coordinacion).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"revision\":1,\"posiciones\":{\"CW-silla-13\":{\"x\":0,\"y\":0}}}"))
+                .andExpect(status().isBadRequest());
         mvc.perform(get(RUTA).with(user("direccion").roles("DIRECTOR")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.posiciones.MR.x").value(12))
                 .andExpect(jsonPath("$.posiciones.P2.y").value(17))
-                .andExpect(jsonPath("$.posiciones.P2.giro").value(15));
+                .andExpect(jsonPath("$.posiciones.P2.giro").value(15))
+                .andExpect(jsonPath("$.posiciones['MR-mesa-1'].x").value(3))
+                .andExpect(jsonPath("$.posiciones['MR-silla-6'].y").value(8))
+                .andExpect(jsonPath("$.posiciones['CW-mesa-9'].x").value(7));
+        mvc.perform(get(RUTA + "/visor")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.posiciones['CW-silla-12'].giro").value(30));
     }
 }

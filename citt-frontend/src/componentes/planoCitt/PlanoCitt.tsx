@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef } from "react";
-import { mobiliarioComun, murosCitt, pisoCitt, pizarrasCitt, referenciasCitt, rectangulo, transformarObjeto, zonasCitt } from "./geometriaCitt";
+import { mobiliarioComun, murosCitt, objetosEditables, pisoCitt, referenciasCitt, rectangulo, transformarEnPlano } from "./geometriaCitt";
 import type { PosicionesPlano } from "./geometriaCitt";
 import { Mueble3D, Prisma } from "./escenaCitt";
 import { crearCamara, puntos } from "./camaraCitt";
@@ -47,8 +47,8 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
     return () => svg.removeEventListener("wheel", usarRueda);
   }, [onZoom]);
 
-  const objetos = [...zonasCitt, ...pizarrasCitt].map((objeto) => {
-    const mover = transformarObjeto(objeto.base, posiciones[objeto.clave] ?? { x: 0, y: 0 });
+  const objetos = objetosEditables.map((objeto) => {
+    const mover = transformarEnPlano(objeto, posiciones);
     return {
       ...objeto,
       camara: {
@@ -151,13 +151,23 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
             strokeWidth="2" paintOrder="stroke" fontSize="14" fontWeight="650">{nombre}</text>;
         })}
       </g>
-      {objetos.map((zona) => {
+      {objetos.filter(objeto => objeto.marcador).map(zona => {
+        const estado = estadosPlano[estados[zona.clave] ?? "sinDatos"];
+        return <g key={zona.clave} data-objeto-plano={zona.clave} onClick={() => onSeleccion(zona.clave)}>
+          <Prisma camara={zona.camara} base={zona.base} altura={2} fondo={estado.fondo} canto={estado.canto}
+            borde={zona.clave === seleccion ? "#003b73" : estado.canto} />
+        </g>;
+      })}
+      {[...objetos.filter(objeto => objeto.muebles.length > 0), ...objetos.filter(objeto => objeto.muebles.length === 0)].map((zona) => {
         const camara = zona.camara;
         if (!zona.marcador) return (
           <g key={zona.clave} data-objeto-plano={zona.clave}
             role={editar ? "button" : undefined} tabIndex={editar ? 0 : undefined}
             aria-label={zona.nombre} aria-pressed={editar ? zona.clave === seleccion : undefined}
-            onClick={editar ? () => onSeleccion(zona.clave) : undefined}
+            onClick={() => {
+              if (editar) onSeleccion(zona.clave);
+              else if (zona.zonaPadre) onSeleccion(zona.zonaPadre);
+            }}
             onKeyDown={editar ? (event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
@@ -166,8 +176,9 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
             } : undefined}>
             <title>{zona.nombre}</title>
             {zona.muebles.map((mueble, indice) => <Mueble3D key={indice} camara={camara} mueble={mueble} />)}
-            {editar && <polygon points={puntos(camara, zona.base, 57)}
-              fill="none" stroke={zona.clave === seleccion ? "#003b73" : "#64748b"} strokeWidth="3" />}
+            {editar && (!zona.zonaPadre || zona.clave === seleccion) &&
+              <polygon points={puntos(camara, zona.base, zona.zonaPadre ? zona.muebles[0].altura + 1 : 57)}
+                pointerEvents="none" fill="none" stroke={zona.clave === seleccion ? "#003b73" : "#64748b"} strokeWidth="3" />}
           </g>
         );
         const estado = estadosPlano[estados[zona.clave] ?? "sinDatos"];
@@ -194,7 +205,6 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
             }}
           >
             <title>{nombre} · {estado.texto}</title>
-            <Prisma camara={camara} base={zona.base} altura={2} fondo={estado.fondo} canto={estado.canto} borde={activo ? "#003b73" : estado.canto} />
             {[...zona.muebles].sort((a, b) => camara.profundidad(a.base) - camara.profundidad(b.base)).map((mueble, indice) => (
               <Mueble3D key={indice} camara={camara} mueble={mueble} />
             ))}
