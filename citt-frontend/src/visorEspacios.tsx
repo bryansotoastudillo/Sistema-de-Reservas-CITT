@@ -10,7 +10,7 @@ interface DatosVisor {
   revision: number;
   consultadoEn: string;
   posiciones: PosicionesPlano;
-  espacios: { id: number; nombre: string; estado: string; enUsoAhora: boolean }[];
+  espacios: { id: number; nombre: string; estado: string; enUsoAhora: boolean; clavePlano?: string | null }[];
 }
 
 const hora = new Intl.DateTimeFormat("es-CL", { timeZone: "America/Santiago", timeStyle: "short" });
@@ -60,6 +60,7 @@ function VisorEspacios() {
       </ul>
       <div className="overflow-hidden rounded-xl border border-slate-200">
         <PlanoCitt estados={Object.fromEntries(zonas.map(z => [z.clave, z.estado]))}
+          nombres={Object.fromEntries(zonas.map(z => [z.clave, z.nombre]))}
           seleccion={seleccion} onSeleccion={setSeleccion} angulo={angulo} inclinacion={inclinacion}
           posiciones={datos.posiciones} editar={false} onMover={sinMover}
           onGirar={(dx, dy) => {

@@ -28,7 +28,7 @@ public class PlanoCittController {
 
     public record Posicion(Double x, Double y, Double giro) {}
     public record Distribucion(long revision, Map<String, Posicion> posiciones) {}
-    public record EspacioVisor(Long id, String nombre, String estado, Boolean enUsoAhora) {}
+    public record EspacioVisor(Long id, String nombre, String estado, Boolean enUsoAhora, String clavePlano) {}
     public record VistaPlano(long revision, Map<String, Posicion> posiciones, List<EspacioVisor> espacios,
                              Instant consultadoEn) {}
 
@@ -36,7 +36,7 @@ public class PlanoCittController {
     public ResponseEntity<VistaPlano> visor() {
         var distribucion = leerDistribucion();
         var ocupacion = espacios.listar(null).stream()
-                .map(e -> new EspacioVisor(e.getId(), e.getNombre(), e.getEstado(), e.getEnUsoAhora()))
+                .map(e -> new EspacioVisor(e.getId(), e.getNombre(), e.getEstado(), e.getEnUsoAhora(), e.getClavePlano()))
                 .toList();
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .body(new VistaPlano(distribucion.revision(), distribucion.posiciones(), ocupacion, Instant.now()));

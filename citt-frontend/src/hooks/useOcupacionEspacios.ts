@@ -4,6 +4,7 @@ import api from "../api/axiosConfig";
 export type Espacio = {
   id: number;
   nombre: string;
+  clavePlano?: string | null;
   comentarios: string;
   estado: string;
   capacidad: number;

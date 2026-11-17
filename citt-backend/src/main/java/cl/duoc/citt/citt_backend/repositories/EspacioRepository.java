@@ -12,6 +12,7 @@ import java.util.Optional;
 
 public interface EspacioRepository extends JpaRepository<Espacio, Long> {
     boolean existsByNombreIgnoreCase(String nombre);
+    boolean existsByClavePlano(String clavePlano);
     Optional<Espacio> findByNombreIgnoreCase(String nombre);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

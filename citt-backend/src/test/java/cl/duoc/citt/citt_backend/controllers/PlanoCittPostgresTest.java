@@ -1,5 +1,6 @@
 package cl.duoc.citt.citt_backend.controllers;
 
+import cl.duoc.citt.citt_backend.services.VinculosPlanoCitt;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,8 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -25,6 +28,30 @@ class PlanoCittPostgresTest {
     private static final String RUTA = "/api/plano-citt";
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate sql;
+    @Autowired VinculosPlanoCitt vinculos;
+
+    @Test
+    void renombrarPreservaLaZonaYOcupacionEnAmbasApis() throws Exception {
+        long id = sql.queryForObject("""
+                insert into espacios (nombre, capacidad, estado_id, ocupado_manualmente_hasta)
+                select 'Mesa de Reuniones', 4, e.id, ?
+                from estado_espacio e where nombre = 'DISPONIBLE' returning id
+                """, Long.class, LocalDateTime.now(ZoneId.of("America/Santiago")).plusHours(1));
+        vinculos.run();
+        var coordinacion = user("coordinacion").roles("COORDINADOR");
+        mvc.perform(put("/api/espacios/{id}", id).with(coordinacion).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nombre\":\"Sala creativa\",\"capacidad\":4}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.clavePlano").value("MR"))
+                .andExpect(jsonPath("$.enUsoAhora").value(true));
+        mvc.perform(get("/api/espacios/{id}", id).with(coordinacion))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.nombre").value("Sala creativa"))
+                .andExpect(jsonPath("$.clavePlano").value("MR"));
+        String espacio = "$.espacios[?(@.id == " + id + ")]";
+        mvc.perform(get(RUTA + "/visor")).andExpect(status().isOk())
+                .andExpect(jsonPath(espacio + ".nombre").value("Sala creativa"))
+                .andExpect(jsonPath(espacio + ".clavePlano").value("MR"))
+                .andExpect(jsonPath(espacio + ".enUsoAhora").value(true));
+    }
 
     @Test
     void visorPublicoSoloEntregaDistribucionYOcupacion() throws Exception {

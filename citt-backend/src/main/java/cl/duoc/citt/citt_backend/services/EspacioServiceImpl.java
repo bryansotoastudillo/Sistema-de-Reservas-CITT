@@ -35,6 +35,7 @@ public class EspacioServiceImpl implements EspacioService {
     private final EstadoEspacioRepository estadoRepository;
     private final SolicitudRepository solicitudRepository;
     private final EstadoSolicitudRepository estadoSolicitudRepository;
+    private final VinculosPlanoCitt vinculosPlano;
 
     @Override
     public EspacioResponseDTO crear(EspacioRequestDTO dto){
@@ -51,6 +52,7 @@ public class EspacioServiceImpl implements EspacioService {
 
         Espacio espacio = Espacio.builder()
                 .nombre(dto.getNombre().trim())
+                .clavePlano(vinculosPlano.claveDisponible(dto.getNombre()))
                 .comentarios(null) // Nace sin comentarios
                 .capacidad(dto.getCapacidad())
                 .estado(disponible)
@@ -217,6 +219,7 @@ public class EspacioServiceImpl implements EspacioService {
         return EspacioResponseDTO.builder()
                 .id(espacio.getId())
                 .nombre(espacio.getNombre())
+                .clavePlano(espacio.getClavePlano())
                 .comentarios(espacio.getComentarios())
                 .capacidad(espacio.getCapacidad())
                 .estado(espacio.getEstado().getNombre().toUpperCase())
