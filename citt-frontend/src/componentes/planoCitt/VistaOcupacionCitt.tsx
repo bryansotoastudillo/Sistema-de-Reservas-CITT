@@ -8,14 +8,13 @@ import { asociarOcupacion, normalizar } from "./ocupacionPlano";
 import { PlanoCitt } from "./PlanoCitt";
 import { estadosPlano } from "./estadosPlano";
 import type { EstadoPlano } from "./estadosPlano";
-import { pizarrasCitt, transformarObjeto, zonasCitt } from "./geometriaCitt";
+import { girarDesplazamiento, mueblesEditables, objetosEditables, pizarrasCitt, transformarEnPlano } from "./geometriaCitt";
 import type { PosicionesPlano } from "./geometriaCitt";
 
 const ANGULO_INICIAL = 25;
 const INCLINACION_INICIAL = 44;
 const ZOOM_MINIMO = 0.75;
 const ZOOM_MAXIMO = 3;
-const objetosEditables = [...zonasCitt, ...pizarrasCitt];
 type Distribucion = { revision: number; posiciones: PosicionesPlano };
 const movimientos = [
   { nombre: "Mover a la izquierda", icono: ArrowLeft, x: -5, y: 0 },
@@ -92,12 +91,21 @@ export function VistaOcupacionCitt({ consulta, actualizar, onCambiarEstado, chil
       if (!actual) return actual;
       const anterior = actual[clave] ?? { x: 0, y: 0 };
       const giro = ((anterior.giro ?? 0) + grados + 360) % 360;
-      const girados = puntos.map(transformarObjeto(objeto.base, { x: 0, y: 0, giro }));
+      const siguientes = { ...actual, [clave]: { ...anterior, giro } };
+      const girados = puntos.map(transformarEnPlano(objeto, siguientes));
+      mueblesEditables.filter(mueble => mueble.zonaPadre === clave).forEach(mueble => {
+        girados.push(...mueble.base.map(transformarEnPlano(mueble, siguientes)));
+      });
       const xs = girados.map(([x]) => x);
       const ys = girados.map(([, y]) => y);
+      if (Math.max(...xs) - Math.min(...xs) > 767 || Math.max(...ys) - Math.min(...ys) > 484) return actual;
+      const [x, y] = girarDesplazamiento([
+        Math.min(767 - Math.max(...xs), Math.max(-Math.min(...xs), dx)),
+        Math.min(484 - Math.max(...ys), Math.max(-Math.min(...ys), dy)),
+      ], -(objeto.zonaPadre ? actual[objeto.zonaPadre]?.giro ?? 0 : 0));
       return { ...actual, [clave]: {
-        x: Math.min(767 - Math.max(...xs), Math.max(-Math.min(...xs), anterior.x + dx)),
-        y: Math.min(484 - Math.max(...ys), Math.max(-Math.min(...ys), anterior.y + dy)),
+        x: anterior.x + x,
+        y: anterior.y + y,
         giro,
       } };
     });
@@ -275,6 +283,15 @@ export function VistaOcupacionCitt({ consulta, actualizar, onCambiarEstado, chil
                   className="rounded-lg border border-slate-300 px-2 py-1 text-sm aria-pressed:bg-blue-100">{pizarra.nombre}</button>
               </li>)}
             </ul>
+            <label className="mt-3 block text-sm font-semibold text-slate-800">
+              Mobiliario
+              <select aria-label="Seleccionar mesa o silla" className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-normal"
+                value={mueblesEditables.some(mueble => mueble.clave === seleccion) ? seleccion ?? "" : ""}
+                onChange={event => setSeleccion(event.target.value || null)}>
+                <option value="">Seleccionar mesa o silla</option>
+                {mueblesEditables.map(mueble => <option key={mueble.clave} value={mueble.clave}>{mueble.nombre}</option>)}
+              </select>
+            </label>
             {seleccion && <div role="group" aria-label={`Mover ${objetosEditables.find(objeto => objeto.clave === seleccion)?.nombre}`}
               className="mt-3 flex flex-wrap gap-2">
               {movimientos.map(({ nombre, icono: Icono, x, y }) => (

@@ -3,6 +3,13 @@ export type Punto = readonly [number, number];
 export type PosicionPlano = { x: number; y: number; giro?: number | null };
 export type PosicionesPlano = Record<string, PosicionPlano>;
 
+export function girarDesplazamiento([x, y]: Punto, giro: number): Punto {
+  const radianes = giro * Math.PI / 180;
+  const coseno = Math.cos(radianes);
+  const seno = Math.sin(radianes);
+  return [x * coseno - y * seno, x * seno + y * coseno];
+}
+
 export function transformarObjeto(base: Punto[], { x, y, giro }: PosicionPlano) {
   const cx = base.reduce((suma, punto) => suma + punto[0], 0) / base.length;
   const cy = base.reduce((suma, punto) => suma + punto[1], 0) / base.length;
@@ -32,15 +39,19 @@ export type Mueble = {
   patas?: string;
 };
 
-type Zona = {
+type ObjetoPlano = {
   clave: string;
   nombre: string;
+  base: Punto[];
+  muebles: Mueble[];
+  zonaPadre?: "MR" | "CW";
+};
+
+type Zona = ObjetoPlano & {
   alias?: string;
   otrosNombres?: readonly string[];
-  base: Punto[];
   marcador: Punto;
   alturaMarcador?: number;
-  muebles: Mueble[];
 };
 
 const madera: Acabado = ["#deb588", "#9f7047", "#b5875c", "#997651"];
@@ -159,24 +170,13 @@ export const zonasCitt: Zona[] = [
     otrosNombres: ["Sala Reunión", "Sala de Reunión", "Sala de Reuniones", "Mesa Reunión", "Mesa Reuniones"],
     base: rectangulo(22, 179, 100, 137),
     marcador: [73, 245],
-    muebles: [
-      ...[192, 232, 272].flatMap((y) => [asiento(30, y, 19, 30, tapiz), asiento(96, y, 18, 30, tapiz)]),
-      { ...mesa(49, 188, 49, 122), acabado: madera, patas: "#d5a322" },
-    ],
+    muebles: [],
   },
   {
     clave: "CW", nombre: "Área Cowork", alias: "Espacio Cowork",
     base: [[205, 85], [495, 85], [495, 159], [482, 159], [482, 296], [205, 296]],
     marcador: [356, 163],
-    muebles: [
-      ...[315, 345, 375, 405, 435, 465].flatMap((x, i) =>
-        [asiento(x, 90, 17, 17, i % 2 === 0 ? naranja : azul), asiento(x, 142, 17, 17, i % 2 === 0 ? azul : naranja)]),
-      mesa(307, 110, 184, 31),
-      mesa(214, 182, 91, 31), mesa(244, 209, 32, 65), mesa(275, 244, 61, 31),
-      asiento(231, 164), asiento(309, 212), asiento(287, 272),
-      mesa(368, 205, 92, 31), mesa(399, 236, 32, 60),
-      asiento(388, 187), asiento(461, 227), asiento(379, 253),
-    ],
+    muebles: [],
   },
 ];
 
@@ -194,6 +194,46 @@ export const pizarrasCitt: (Omit<Zona, "marcador"> & { marcador?: never })[] = [
     pieza(rectangulo(159, y, 6, 38), 57, blanco, 5),
   ],
 }));
+
+function mueblesDeZona(zonaPadre: "MR" | "CW", tipo: "mesa" | "silla", muebles: Mueble[]) {
+  const nombreZona = zonaPadre === "MR" ? "Reunión" : "Cowork";
+  const nombreTipo = tipo === "mesa" ? "Mesa" : "Silla";
+  return muebles.map((mueble, indice) => ({
+    clave: `${zonaPadre}-${tipo}-${indice + 1}`,
+    nombre: `${nombreZona} · ${nombreTipo} ${indice + 1}`,
+    base: mueble.base,
+    muebles: [mueble],
+    zonaPadre,
+  }));
+}
+
+const gruposCowork = [[310, 110], [211, 212], [355, 212]] as const;
+
+export const mueblesEditables = [
+  ...mueblesDeZona("MR", "mesa", [{ ...mesa(49, 188, 49, 122), acabado: madera, patas: "#d5a322" }]),
+  ...mueblesDeZona("MR", "silla", [192, 232, 272].flatMap(y => [
+    asiento(30, y, 19, 30, tapiz), asiento(99, y, 18, 30, tapiz),
+  ])),
+  ...mueblesDeZona("CW", "mesa", gruposCowork.flatMap(([x, y]) =>
+    [0, 41, 82].map(dx => mesa(x + dx, y, 39, 31)))),
+  ...mueblesDeZona("CW", "silla", gruposCowork.flatMap(([x, y]) => [
+    asiento(x + 13, y - 20, 17, 17, naranja), asiento(x + 89, y - 20),
+    asiento(x + 13, y + 34), asiento(x + 89, y + 34, 17, 17, naranja),
+  ])),
+];
+
+export const objetosEditables: (ObjetoPlano & { marcador?: Punto; alturaMarcador?: number })[] = [
+  ...zonasCitt, ...pizarrasCitt, ...mueblesEditables,
+];
+
+export function transformarEnPlano(objeto: ObjetoPlano, posiciones: PosicionesPlano) {
+  const mover = transformarObjeto(objeto.base, posiciones[objeto.clave] ?? { x: 0, y: 0 });
+  const padre = zonasCitt.find(zona => zona.clave === objeto.zonaPadre);
+  const posicionPadre = padre && posiciones[padre.clave];
+  if (!padre || !posicionPadre) return mover;
+  const moverZona = transformarObjeto(padre.base, posicionPadre);
+  return (punto: Punto) => moverZona(mover(punto));
+}
 
 export const murosCitt: Punto[][] = [
   rectangulo(-17, -8, 787, 8),
