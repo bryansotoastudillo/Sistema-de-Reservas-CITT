@@ -55,6 +55,7 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
         ...camara,
         proyectar: (punto: Parameters<typeof mover>[0], altura?: number) => camara.proyectar(mover(punto), altura),
         profundidad: (base: typeof objeto.base) => camara.profundidad(base.map(mover)),
+        profundidadPunto: (punto: Parameters<typeof mover>[0], altura: number) => camara.profundidadPunto(mover(punto), altura),
         caraVisible: (a: Parameters<typeof mover>[0], b: Parameters<typeof mover>[0]) => camara.caraVisible(mover(a), mover(b)),
       },
     };
