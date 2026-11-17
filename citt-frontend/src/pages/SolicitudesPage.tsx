@@ -1,5 +1,5 @@
 import { rolesGestionCitt, rolesPersonalCitt } from "../utils/roles";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Modal from "../componentes/Modal";
 import { ResumenRecursosCowork, type RecursoCowork } from "../componentes/RecursosCowork";
 import {
@@ -68,6 +68,36 @@ interface ArticuloDTO {
 
 const ESTADOS_ACTIVOS = ["PENDIENTE", "APROBADA", "EN PROCESO", "ATRASADO"];
 
+function VistaPreviaProposito({ texto, id, abrir }: { texto: string; id: number; abrir: () => void }) {
+  const fila = useRef<HTMLDivElement>(null);
+  const vista = useRef<HTMLSpanElement>(null);
+  const [recortado, setRecortado] = useState(false);
+
+  useLayoutEffect(() => {
+    const contenedor = fila.current;
+    const contenido = vista.current;
+    if (!contenedor || !contenido) return;
+    const medir = () => setRecortado(contenido.scrollWidth > contenedor.clientWidth);
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(contenedor);
+    return () => observador.disconnect();
+  }, [texto]);
+
+  return (
+    <div ref={fila} className="flex items-center">
+      <span ref={vista} className="min-w-0 overflow-hidden whitespace-nowrap">{texto || "—"}</span>
+      {recortado && (
+        <button type="button" onClick={abrir} aria-label={`Leer propósito de la solicitud #${id}`}
+          aria-haspopup="dialog"
+          className="ml-0.5 shrink-0 rounded border border-blue-200 bg-blue-50 px-1.5 font-bold text-blue-800 hover:bg-blue-100">
+          …
+        </button>
+      )}
+    </div>
+  );
+}
+
 export const SolicitudesPage: React.FC = () => {
   const rolActivo = localStorage.getItem("activeRole") || "";
   const currentUserEmail = localStorage.getItem("userEmail") || "";
@@ -84,6 +114,8 @@ export const SolicitudesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [vistaActiva, setVistaActiva] = useState<"mias" | "todas">(isStaff ? "todas" : "mias");
   const [filtro, setFiltro] = useState("");
+  const dialogoProposito = useRef<HTMLDialogElement>(null);
+  const [propositoVisible, setPropositoVisible] = useState<SolicitudDTO | null>(null);
   const [editandoSolicitante, setEditandoSolicitante] = useState<SolicitudDTO | null>(null);
   const [correoSolicitante, setCorreoSolicitante] = useState("");
   const [guardandoSolicitante, setGuardandoSolicitante] = useState(false);
@@ -304,6 +336,19 @@ export const SolicitudesPage: React.FC = () => {
 
   return (
     <>
+      <dialog ref={dialogoProposito} aria-labelledby="titulo-proposito-solicitud"
+        className="m-auto max-h-[85vh] w-[calc(100%_-_2rem)] max-w-xl rounded-xl border border-slate-200 bg-white p-6 shadow-xl backdrop:bg-black/50"
+        onClose={() => setPropositoVisible(null)}>
+        <h2 id="titulo-proposito-solicitud" className="text-lg font-bold text-slate-900">
+          Propósito de la solicitud #{propositoVisible?.idSolicitud}
+        </h2>
+        <p className="my-4 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-slate-700">
+          {propositoVisible?.proposito}
+        </p>
+        <form method="dialog">
+          <button className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Cerrar</button>
+        </form>
+      </dialog>
       <Modal isOpen={editandoSolicitante !== null}
         titulo={`Solicitante de la solicitud #${editandoSolicitante?.idSolicitud ?? ""}`}
         onClose={() => { if (!guardandoSolicitante) setEditandoSolicitante(null); }}>
@@ -530,8 +575,11 @@ export const SolicitudesPage: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-sm text-slate-600 max-w-[180px] truncate">
-                        {s.proposito || "—"}
+                      <td className="max-w-[180px] p-4 text-sm text-slate-600">
+                        <VistaPreviaProposito texto={s.proposito} id={s.idSolicitud} abrir={() => {
+                          setPropositoVisible(s);
+                          dialogoProposito.current?.showModal();
+                        }} />
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col gap-1.5">
