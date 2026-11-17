@@ -49,6 +49,13 @@ public class NotebookMonitoreadoController {
                 .body(servicio.emitirCredencial(articuloId, renovar));
     }
 
+    @DeleteMapping("/vinculos/{idVinculo}")
+    @PreAuthorize("hasAnyRole('COORDINADOR', 'DIRECTOR')")
+    public ResponseEntity<Void> desvincular(@PathVariable Long idVinculo) {
+        servicio.desvincular(idVinculo);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping(value = "/reportes", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> recibir(
             @RequestHeader(value = "Authorization", required = false) String token,

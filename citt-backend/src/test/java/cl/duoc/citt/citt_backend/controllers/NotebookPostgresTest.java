@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -116,5 +117,27 @@ class NotebookPostgresTest {
         monitoreo.eliminarUbicacionesVencidas();
         assertThat(sql.queryForObject("select count(*) from notebook_ubicacion where solicitud_id = ?",
                 Integer.class, solicitud)).isEqualTo(1);
+
+        Long vinculo = sql.queryForObject("select id from notebook_monitoreado where id_articulo = ?", Long.class, articuloId);
+        String ruta = "/api/notebooks/vinculos/{id}";
+        mvc.perform(delete(ruta, vinculo).with(user("alumno").roles("ALUMNO")))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete(ruta, vinculo).with(user("coordinacion").roles("COORDINADOR")))
+                .andExpect(status().isNoContent());
+        assertThat(articulos.findById(articuloId)).isPresent();
+        assertThat(sql.queryForObject("select count(*) from solicitud_articulo where id_solicitud = ?",
+                Integer.class, solicitud)).isEqualTo(1);
+        assertThat(sql.queryForObject("select count(*) from notebook_ubicacion where notebook_id = ?",
+                Integer.class, vinculo)).isZero();
+        mvc.perform(post("/api/notebooks/reportes").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/notebooks/{articuloId}/credencial", articuloId).with(user("direccion").roles("DIRECTOR"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+        mvc.perform(delete(ruta, vinculo).with(user("direccion").roles("DIRECTOR")))
+                .andExpect(status().isNoContent());
+        assertThat(sql.queryForObject("select id from notebook_monitoreado where id_articulo = ?",
+                Long.class, articuloId)).isNotEqualTo(vinculo);
     }
 }

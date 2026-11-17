@@ -28,4 +28,8 @@ public interface NotebookUbicacionRepository extends JpaRepository<NotebookUbica
     @Modifying
     @Query("delete from NotebookUbicacion u where u.observada <= :hasta")
     int eliminarVencidas(@Param("hasta") Instant hasta);
+
+    @Modifying
+    @Query("delete from NotebookUbicacion u where u.notebook.id = :id")
+    void eliminarPorVinculo(@Param("id") Long id);
 }

@@ -2,6 +2,7 @@ import { rolesGestionCitt } from "../utils/roles";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import api from "../api/axiosConfig";
+import Modal from "../componentes/Modal";
 
 interface Articulo {
   idArticulo: number;
@@ -23,6 +24,7 @@ interface HistorialUbicaciones {
 }
 
 interface Notebook {
+  idVinculo: number;
   idArticulo: number;
   articulo: string;
   codigoDuoc?: string;
@@ -160,6 +162,9 @@ function VistaNotebooks() {
   const [articuloId, setArticuloId] = useState("");
   const [buscando, setBuscando] = useState(false);
   const [generando, setGenerando] = useState(false);
+  const [porDesvincular, setPorDesvincular] = useState<Notebook | null>(null);
+  const [desvinculando, setDesvinculando] = useState(false);
+  const [errorDesvincular, setErrorDesvincular] = useState("");
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -235,6 +240,23 @@ function VistaNotebooks() {
     }
   }
 
+  async function desvincular() {
+    if (!porDesvincular || desvinculando) return;
+    setDesvinculando(true);
+    setErrorDesvincular("");
+    try {
+      await api.delete(`/notebooks/vinculos/${porDesvincular.idVinculo}`);
+      setEquipos(actuales => actuales.filter(equipo => equipo.idVinculo !== porDesvincular.idVinculo));
+      setPorDesvincular(null);
+      setMensaje("Notebook retirado del monitoreo.");
+      setVersion(v => v + 1);
+    } catch {
+      setErrorDesvincular("No se pudo desvincular el notebook. Puedes volver a intentarlo.");
+    } finally {
+      setDesvinculando(false);
+    }
+  }
+
   return (
     <section className="space-y-5 pb-8">
       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-5">
@@ -292,7 +314,8 @@ function VistaNotebooks() {
                 <th key={titulo} scope="col" className="px-5 py-3">{titulo}</th>)}</tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {equipos.map(({ idArticulo, articulo, codigoDuoc, estadoInventario, observado, reporte, prestamoExterno, ubicacion, prestamo }) => {
+              {equipos.map(equipo => {
+                const { idArticulo, articulo, codigoDuoc, estadoInventario, observado, reporte, prestamoExterno, ubicacion, prestamo } = equipo;
                 const numeroCitt = articulo.trim().match(/\bCITT(?:-LAP|\s+)(\d{1,3})$/i)?.[1];
                 const nombreEquipo = numeroCitt ? "CITT-LAP" + String(Number(numeroCitt)).padStart(2, "0") : "Sin número asignado";
                 const lectura = observado ? new Date(observado) : null;
@@ -322,6 +345,11 @@ function VistaNotebooks() {
                         </div>}
                       </dl>
                     </details> : <span id={`prestamo-notebook-${idArticulo}`} className="mt-2 block text-xs font-normal text-slate-600">Sin préstamo registrado</span>}
+                    <button type="button" className="mt-2 text-xs font-semibold text-red-700 underline"
+                      onClick={() => { setErrorDesvincular(""); setPorDesvincular(equipo); }}
+                      aria-label={`Desvincular ${nombreEquipo} · ${codigoDuoc || idArticulo}`}>
+                      Desvincular
+                    </button>
                   </td>
                   <td className="px-5 py-4">{estadoInventario}</td>
                   <td className="whitespace-nowrap px-5 py-4">
@@ -379,6 +407,23 @@ function VistaNotebooks() {
           </table>
         </div>}
       </div>
+      <Modal isOpen={porDesvincular !== null} titulo="Desvincular notebook"
+        onClose={() => { if (!desvinculando) setPorDesvincular(null); }}>
+        <div className="space-y-4 text-sm text-slate-700">
+          <p className="font-semibold">{porDesvincular && nombreNotebook(porDesvincular.articulo)}
+            {porDesvincular?.codigoDuoc && ` · ${porDesvincular.codigoDuoc}`}</p>
+          <p>Se revocará la clave de monitoreo y se borrarán sus reportes y su historial de ubicación.</p>
+          {errorDesvincular && <p role="alert" className="text-red-700">{errorDesvincular}</p>}
+          <div className="flex justify-end gap-2">
+            <button type="button" className={campo} disabled={desvinculando}
+              onClick={() => setPorDesvincular(null)}>Cancelar</button>
+            <button type="button" disabled={desvinculando} onClick={desvincular}
+              className="rounded-lg bg-red-700 px-4 py-2 font-semibold text-white disabled:opacity-50">
+              {desvinculando ? "Desvinculando…" : "Confirmar desvinculación"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </section>
   );
 }

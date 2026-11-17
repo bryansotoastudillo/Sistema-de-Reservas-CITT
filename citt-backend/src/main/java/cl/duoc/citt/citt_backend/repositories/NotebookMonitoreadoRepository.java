@@ -87,6 +87,10 @@ public interface NotebookMonitoreadoRepository extends JpaRepository<NotebookMon
     Optional<NotebookMonitoreado> findByArticuloIdArticulo(Long articuloId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select n from NotebookMonitoreado n where n.id = :id")
+    Optional<NotebookMonitoreado> bloquearVinculo(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from Articulo a where a.idArticulo = :id")
     Optional<Articulo> bloquearArticulo(@Param("id") Long id);
 

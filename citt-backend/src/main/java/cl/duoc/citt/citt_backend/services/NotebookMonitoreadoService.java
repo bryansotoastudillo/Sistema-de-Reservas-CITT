@@ -50,7 +50,7 @@ public class NotebookMonitoreadoService {
     private record PrestamoUbicado(Long notebook, Long solicitud) {}
     public record Prestamo(Long solicitud, String estado, String solicitante, LocalDateTime vence,
                            LocalDateTime devuelto, String condicion, String observacion) {}
-    public record Equipo(Long idArticulo, String articulo, String codigoDuoc, String numeroSerie,
+    public record Equipo(Long idVinculo, Long idArticulo, String articulo, String codigoDuoc, String numeroSerie,
                          String estadoInventario, Instant recibido, Instant observado, JsonNode reporte,
                          boolean prestamoExterno, Ubicacion ubicacion, Prestamo prestamo) {}
 
@@ -70,6 +70,14 @@ public class NotebookMonitoreadoService {
         notebook.setHashToken(hash(token));
         repositorio.save(notebook);
         return new Credencial("CITT-" + articuloId, token, "/api/notebooks/reportes");
+    }
+
+    @Transactional
+    public void desvincular(Long idVinculo) {
+        repositorio.bloquearVinculo(idVinculo).ifPresent(notebook -> {
+            ubicaciones.eliminarPorVinculo(idVinculo);
+            repositorio.delete(notebook);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -93,7 +101,7 @@ public class NotebookMonitoreadoService {
                 publico.remove("ubicacion");
                 reporte = publico;
             }
-            return new Equipo(a.getIdArticulo(), a.getNombreArticulo(), a.getCodigoDuoc(), a.getNumeroSerie(),
+            return new Equipo(n.getId(), a.getIdArticulo(), a.getNombreArticulo(), a.getCodigoDuoc(), a.getNumeroSerie(),
                     a.getEstadoArticulo().getNombreEstado(), n.getRecibido(), n.getObservado(), reporte,
                     prestamo != null, ultimas.get(new PrestamoUbicado(n.getId(), prestamo)), fichas.get(a.getIdArticulo()));
         }).toList();
