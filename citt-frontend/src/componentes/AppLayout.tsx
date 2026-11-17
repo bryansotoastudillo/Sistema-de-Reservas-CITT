@@ -1,8 +1,8 @@
 import { rolesGestionCitt, rolesPersonalCitt } from "../utils/roles";
-import React from "react";
-import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Link, NavLink, useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
-  Cpu, Calendar, Package, History, Users, FileText, Settings, LogOut, PieChart, CalendarCheck, Handshake, Box, UserCog, MonitorSmartphone, ClipboardList, PackageOpen, Images,
+  Cpu, Calendar, History, Users, LogOut, PieChart, Box, UserCog, MonitorSmartphone, ClipboardList, PackageOpen, Images, Menu, X,
 } from "lucide-react";
 import api from "../api/axiosConfig";
 import { useSeguridad } from "../hooks/useSeguridad";
@@ -63,6 +63,21 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const { isVerificando } = useSeguridad();
+  const menuMovil = useRef<HTMLDialogElement>(null);
+  const contenido = useRef<HTMLElement>(null);
+  const [menuAbierto, setMenuAbierto] = useState(false);
+
+  useEffect(() => {
+    menuMovil.current?.close();
+    contenido.current?.scrollTo({ top: 0 });
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    const escritorio = window.matchMedia("(min-width: 64rem)");
+    const cerrarSiEscritorio = () => { if (escritorio.matches) menuMovil.current?.close(); };
+    escritorio.addEventListener("change", cerrarSiEscritorio);
+    return () => escritorio.removeEventListener("change", cerrarSiEscritorio);
+  }, []);
 
   const email = localStorage.getItem("userEmail") || "Usuario";
   const rolActivo = localStorage.getItem("activeRole") || "";
@@ -89,7 +104,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const isStaff = rolesPersonalCitt.includes(
     rolActivo,
   );
-  const isAyudante = rolActivo === "AYUDANTE";
 
   const handleLogout = async () => {
     try {
@@ -148,16 +162,28 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
       : []),
   ];
 
-  return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
-      <aside className="w-64 bg-[#1e1e2d] text-gray-300 flex flex-col shadow-xl z-20">
-        <div className="flex items-center gap-2 h-16 px-6 border-b border-gray-800">
-          <Cpu className="text-blue-500 w-8 h-8" strokeWidth={2.5} />
-          <span className="text-xl font-bold text-white tracking-wide">
-            CITT <span className="font-normal text-gray-400">DuocUC</span>
-          </span>
-        </div>
-        <div className="mx-4 mt-6 mb-2 p-3 rounded-lg flex items-center gap-3 transition-colors hover:bg-white/5 cursor-pointer" onClick={() => navigate('/perfil')}>
+  const accesosMovil = [
+    { label: "Inicio", path: "/dashboard", icon: PieChart },
+    { label: "Espacios", path: "/solicitar-reserva", icon: MonitorSmartphone },
+    { label: "Artículos", path: "/solicitar-prestamo", icon: PackageOpen },
+    { label: "Solicitudes", path: "/solicitudes", icon: ClipboardList },
+  ];
+  const navegar = (ruta: string) => {
+    menuMovil.current?.close();
+    navigate(ruta);
+  };
+  const marca = (
+    <>
+      <Cpu className="size-6 shrink-0 text-blue-500 lg:size-8" aria-hidden="true" strokeWidth={2.5} />
+      <span className="text-lg font-bold tracking-wide text-white lg:text-xl">
+        CITT <span className="font-normal text-gray-300">DuocUC</span>
+      </span>
+    </>
+  );
+  const navegacion = (
+    <>
+        <Link to="/perfil" onClick={() => menuMovil.current?.close()}
+          className="mx-4 mt-4 mb-2 flex items-center gap-3 rounded-lg p-3 hover:bg-white/5 lg:mt-6">
           <div className="relative shrink-0">
             <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-semibold text-lg">
               {rolPrincipal.charAt(0).toUpperCase()}
@@ -167,16 +193,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           <div className="flex flex-col overflow-hidden justify-center">
             <span className="text-sm font-medium text-slate-200 truncate capitalize">{rolPrincipal}</span>
           </div>
-        </div>
+        </Link>
 
-        <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-3 scroll-styled scroll-dark">
+        <nav aria-label="Navegación principal" className="min-h-0 flex-1 overflow-y-auto py-2 space-y-1 px-3 scroll-styled scroll-dark lg:py-4">
           {menuItems.map((item) => {
             const isActive = location.pathname.includes(item.path);
             return (
               <button
                 key={item.name}
-                onClick={() => navigate(item.path)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer ${
+                type="button"
+                aria-current={isActive ? "page" : undefined}
+                onClick={() => navegar(item.path)}
+                className={`w-full min-h-11 flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-200 text-sm font-medium cursor-pointer ${
                   isActive
                     ? "bg-blue-600/15 text-blue-400"
                     : "hover:bg-gray-800 hover:text-white text-gray-400"
@@ -193,7 +221,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
         <div className="p-4 border-t border-gray-800 space-y-2">
           <button
-            onClick={() => navigate("/perfil")}
+            onClick={() => navegar("/perfil")}
             className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
               location.pathname.includes("/perfil")
                 ? "bg-gray-800 text-white"
@@ -212,14 +240,47 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             Cerrar Sesión
           </button>
         </div>
-      </aside>
+    </>
+  );
 
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 min-w-0">
+  return (
+    <div className="flex h-dvh overflow-hidden bg-gray-50 font-sans">
+      <aside className="hidden w-64 shrink-0 flex-col bg-[#1e1e2d] text-gray-300 shadow-xl lg:flex">
+        <div className="flex h-16 items-center gap-2 border-b border-gray-800 px-6">{marca}</div>
+        {navegacion}
+      </aside>
+      <dialog id="menu-movil-citt" ref={menuMovil} aria-label="Menú de navegación"
+        onClose={() => setMenuAbierto(false)}
+        onClick={event => { if (event.target === event.currentTarget) menuMovil.current?.close(); }}
+        className="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-[min(85vw,20rem)] max-w-none bg-[#1e1e2d] p-0 text-gray-300 backdrop:bg-slate-950/55 lg:hidden">
+        <div className="flex h-full flex-col">
+          <div className="flex min-h-14 items-center justify-between border-b border-gray-800 px-4">
+            <div className="flex items-center gap-2">{marca}</div>
+            <button type="button" aria-label="Cerrar menú" onClick={() => menuMovil.current?.close()}
+              className="grid size-11 place-items-center rounded-lg text-white hover:bg-white/10">
+              <X size={22} aria-hidden="true" />
+            </button>
+          </div>
+          {navegacion}
+        </div>
+      </dialog>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-gray-50 [--barra-citt:calc(4rem_+_env(safe-area-inset-bottom))]">
+        <header className="flex min-h-14 shrink-0 items-center justify-between gap-2 bg-[#1e1e2d] px-3 lg:hidden">
+          <Link to="/dashboard" className="flex min-h-11 items-center gap-2" aria-label="Inicio CITT">{marca}</Link>
+          <button type="button" aria-haspopup="dialog" aria-controls="menu-movil-citt" aria-expanded={menuAbierto}
+            onClick={() => {
+              menuMovil.current?.showModal();
+              setMenuAbierto(true);
+            }}
+            className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-white hover:bg-white/10">
+            <Menu size={22} aria-hidden="true" /> Menú
+          </button>
+        </header>
         <main
-          className="flex-1 overflow-x-hidden overflow-y-scroll scroll-styled scroll-light relative min-h-0"
-          style={{ scrollbarGutter: "stable" }}
+          ref={contenido}
+          className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto scroll-styled scroll-light lg:[scrollbar-gutter:stable]"
         >
-          <div className="max-w-[1600px] mx-auto w-full px-8 pt-8 pb-4">
+          <div className="mx-auto w-full max-w-[1600px] px-3 pb-4 pt-4 sm:px-5 lg:px-8 lg:pt-8">
             <HeaderBanner 
               pantallaActual={RUTAS_NOMBRES[location.pathname] || "Sistema CITT"} 
               descripcion={
@@ -235,6 +296,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
             {children || <Outlet />}
           </div>
         </main>
+        <nav aria-label="Accesos rápidos" className="grid h-[var(--barra-citt)] shrink-0 grid-cols-4 border-t border-slate-200 bg-white px-1 pb-[env(safe-area-inset-bottom)] lg:hidden">
+          {accesosMovil.map(({label, path, icon: Icono}) => (
+            <NavLink key={path} to={path}
+              className={({isActive}) => `flex min-w-0 flex-col items-center justify-center gap-1 rounded-lg text-[11px] font-semibold ${isActive ? "bg-blue-50 text-blue-800" : "text-slate-700 hover:bg-slate-50"}`}>
+              <Icono size={20} aria-hidden="true" />
+              {label}
+            </NavLink>
+          ))}
+        </nav>
       </div>
     </div>
   );

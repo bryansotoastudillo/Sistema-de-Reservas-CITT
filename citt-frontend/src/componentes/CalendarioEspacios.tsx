@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -20,6 +20,8 @@ interface CalendarioEventoDTO {
 
 export const CalendarioEspacios: React.FC = () => {
   const [eventos, setEventos] = useState<any[]>([]);
+  const calendario = useRef<FullCalendar>(null);
+  const [pantallaCompacta, setPantallaCompacta] = useState(() => window.matchMedia("(max-width: 639px)").matches);
   // Usamos el hook de seguridad por si necesitamos la información, pero el backend ya filtra la información sensible.
   const { isVerificando } = useSeguridad();
   const [modalOpen, setModalOpen] = useState(false);
@@ -30,6 +32,16 @@ export const CalendarioEspacios: React.FC = () => {
 
   useEffect(() => {
     fetchEventos();
+  }, []);
+
+  useEffect(() => {
+    const pantalla = window.matchMedia("(max-width: 639px)");
+    const adaptarVista = () => {
+      setPantallaCompacta(pantalla.matches);
+      calendario.current?.getApi().changeView(pantalla.matches ? "timeGridDay" : "timeGridWeek");
+    };
+    pantalla.addEventListener("change", adaptarVista);
+    return () => pantalla.removeEventListener("change", adaptarVista);
   }, []);
 
   const fetchEventos = async () => {
@@ -75,13 +87,14 @@ export const CalendarioEspacios: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full bg-white rounded-3xl shadow-sm p-8 border border-gray-100">
+    <div className="w-full h-full bg-white rounded-3xl shadow-sm p-3 sm:p-8 border border-gray-100">
       
-      <div className="calendar-container h-[700px] overflow-hidden">
+      <div className="calendar-container h-[min(700px,75dvh)] min-h-96 sm:h-[700px] overflow-hidden">
         <FullCalendar
+          ref={calendario}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView="timeGridWeek"
-          headerToolbar={{
+          initialView={pantallaCompacta ? "timeGridDay" : "timeGridWeek"}
+          headerToolbar={pantallaCompacta ? { left: "title", center: "", right: "prev,next today" } : {
             left: 'prev,next today',
             center: 'title',
             right: 'timeGridWeek,timeGridDay'
@@ -107,7 +120,7 @@ export const CalendarioEspacios: React.FC = () => {
 
       {modalOpen && selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-300">
-          <div className="bg-white rounded-2xl p-8 max-w-lg w-full m-4 shadow-2xl transform transition-all duration-300 scale-100 animate-in fade-in zoom-in-95 border border-gray-100">
+          <div className="bg-white rounded-2xl p-4 sm:p-8 max-w-lg w-full max-h-[85dvh] overflow-y-auto m-4 shadow-2xl transform transition-all duration-300 scale-100 animate-in fade-in zoom-in-95 border border-gray-100">
             <div className="flex justify-between items-start mb-6">
               <h3 className="text-2xl font-bold text-gray-800 break-words flex-1 pr-4">
                 {isAlumno ? "Detalles de Reserva" : selectedEvent.proposito}
@@ -210,6 +223,11 @@ export const CalendarioEspacios: React.FC = () => {
         /* ARREGLOS DE LAYOUT (Fuerza flexbox que Tailwind V4 puede romper) */
         .fc .fc-header-toolbar { display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 1.5rem !important; gap: 1rem; flex-wrap: wrap; }
         .fc .fc-toolbar-chunk { display: flex !important; align-items: center !important; gap: 0.5rem; }
+        @media (max-width: 639px) {
+          .fc .fc-header-toolbar { gap: .5rem; margin-bottom: .75rem !important; }
+          .fc .fc-toolbar-title { font-size: 1.05rem !important; white-space: normal; margin: 0 !important; }
+          .fc .fc-button { min-height: 44px; }
+        }
         .fc .fc-button-group { display: inline-flex !important; }
         .fc .fc-button-group > .fc-button { margin-left: -1px; }
         .fc .fc-button-group > .fc-button:first-child { margin-left: 0; }

@@ -51,7 +51,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = ({ pantallaActual, desc
   };
 
   return (
-    <div className={`${estilo.bg} border ${estilo.border} border-l-[6px] px-6 py-5 rounded-2xl shadow-sm mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in zoom-in-95 duration-300`}>
+    <div className={`${estilo.bg} border ${estilo.border} border-l-[6px] px-4 py-3 sm:px-6 sm:py-5 rounded-2xl shadow-sm mb-4 sm:mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in zoom-in-95 duration-300`}>
       <div className="flex items-start gap-4 flex-1 pr-4">
         <div className="flex flex-col justify-center">
           <h1 className="text-xl font-extrabold text-slate-800 tracking-tight m-0 leading-tight">
@@ -66,7 +66,7 @@ export const HeaderBanner: React.FC<HeaderBannerProps> = ({ pantallaActual, desc
       </div>
       
       {/* Reloj y Fecha compactos centrados */}
-      <div className={`flex items-center justify-center shrink-0 ${estilo.innerBg} px-6 py-2.5 rounded-xl border ${estilo.innerBorder} shadow-sm backdrop-blur-sm min-w-[160px]`}>
+      <div className={`hidden sm:flex items-center justify-center shrink-0 ${estilo.innerBg} px-6 py-2.5 rounded-xl border ${estilo.innerBorder} shadow-sm backdrop-blur-sm min-w-[160px]`}>
         <div className="text-center">
           <div className="text-base font-bold text-slate-700 tabular-nums leading-none mb-1">
             {formatearHora(horaActual)}

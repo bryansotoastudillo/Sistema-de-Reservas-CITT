@@ -386,30 +386,32 @@ export const SolicitudesPage: React.FC = () => {
 
         {/* TABS PARA STAFF */}
         {isStaff && (
-          <div className="flex gap-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm w-max">
+          <div className="grid w-full grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm sm:flex sm:w-max sm:gap-2">
             <button
               onClick={() => setVistaActiva("todas")}
-              className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 cursor-pointer ${
+              aria-pressed={vistaActiva === "todas"}
+              className={`min-h-11 rounded-lg px-2 py-2 text-sm font-bold transition-all duration-200 cursor-pointer sm:px-5 ${
                 vistaActiva === "todas"
                   ? "bg-blue-600 text-white shadow-md"
                   : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
               }`}
             >
-              <span className="flex items-center gap-2">
-                <FileText size={16} />
+              <span className="flex items-center justify-center gap-1.5">
+                <FileText size={16} className="hidden sm:block" />
                 Todas las Solicitudes
               </span>
             </button>
             <button
               onClick={() => setVistaActiva("mias")}
-              className={`px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 cursor-pointer ${
+              aria-pressed={vistaActiva === "mias"}
+              className={`min-h-11 rounded-lg px-2 py-2 text-sm font-bold transition-all duration-200 cursor-pointer sm:px-5 ${
                 vistaActiva === "mias"
                   ? "bg-blue-600 text-white shadow-md"
                   : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
               }`}
             >
-              <span className="flex items-center gap-2">
-                <User size={16} />
+              <span className="flex items-center justify-center gap-1.5">
+                <User size={16} className="hidden sm:block" />
                 Mis Solicitudes
               </span>
             </button>
@@ -418,12 +420,13 @@ export const SolicitudesPage: React.FC = () => {
 
         {/* BARRA DE BÚSQUEDA + REFRESH */}
         <div className="flex gap-3 items-center">
-          <div className="relative flex-1 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center p-2">
+          <div className="relative min-w-0 flex-1 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center p-2">
             <div className="pl-4 text-slate-400">
               <Search size={20} />
             </div>
             <input
               type="text"
+              aria-label="Buscar solicitudes"
               placeholder={
                 vistaActiva === "todas"
                   ? "Buscar por email, propósito, espacio o artículo..."
@@ -436,6 +439,7 @@ export const SolicitudesPage: React.FC = () => {
           </div>
           <button
             onClick={fetchData}
+            aria-label="Actualizar solicitudes"
             className="p-3 border border-slate-300 rounded-xl hover:text-blue-600 hover:border-blue-300 cursor-pointer bg-white transition-colors shadow-sm"
           >
             <RefreshCw className="w-5 h-5" />
@@ -464,8 +468,8 @@ export const SolicitudesPage: React.FC = () => {
         ) : (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
+              <table role="table" className="w-full text-left border-collapse max-lg:block">
+                <thead className="max-lg:sr-only">
                   <tr className="border-b border-slate-200 bg-gray-50/50">
                     <th className="p-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
                       ID
@@ -497,28 +501,29 @@ export const SolicitudesPage: React.FC = () => {
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody role="rowgroup" className="lg:divide-y lg:divide-slate-100 max-lg:grid max-lg:gap-3 max-lg:bg-slate-50 max-lg:p-2">
                   {solicitudesAMostrar.map((s) => (
                     <tr
                       key={s.idSolicitud}
-                      className="hover:bg-slate-50/80 transition-colors"
+                      role="row"
+                      className="hover:bg-slate-50/80 transition-colors max-lg:grid max-lg:grid-cols-2 max-lg:items-start max-lg:gap-x-3 max-lg:gap-y-2 max-lg:rounded-xl max-lg:border max-lg:border-slate-200 max-lg:bg-white max-lg:p-3 max-lg:[&>td]:min-w-0 max-lg:[&>td]:p-0"
                     >
-                      <td className="p-4 font-mono text-sm text-slate-500">
+                      <td role="cell" className="p-4 font-mono text-sm text-slate-500">
                         #{s.idSolicitud}
                       </td>
                       {vistaActiva === "todas" && (
-                        <td className="p-4">
+                        <td role="cell" className="p-4 max-lg:col-span-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
+                            <div className="w-8 h-8 shrink-0 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
                               {s.emailUsuario?.charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-sm font-medium text-slate-700 truncate max-w-[180px]">
+                            <span className="min-w-0 text-sm font-medium text-slate-700 max-lg:[overflow-wrap:anywhere] lg:max-w-[180px] lg:truncate">
                               {s.emailUsuario}
                             </span>
                           </div>
                           {esAdminPrincipal && s.emailCreador?.toLowerCase() === "admin@duoc.cl"
                             && ["PENDIENTE", "APROBADA"].includes(s.estado) && (
-                            <button type="button" className="mt-1 text-xs font-semibold text-blue-700 underline"
+                            <button type="button" className="mt-1 text-xs font-semibold text-blue-700 underline max-lg:min-h-11"
                               onClick={() => {
                                 setCorreoSolicitante(s.emailUsuario === s.emailCreador ? "" : s.emailUsuario);
                                 setErrorSolicitante("");
@@ -529,20 +534,20 @@ export const SolicitudesPage: React.FC = () => {
                           )}
                         </td>
                       )}
-                      <td className="p-4 text-sm text-slate-700">
+                      <td role="cell" className="p-4 text-sm text-slate-700">
                         <span className="flex items-center gap-1.5">
                           <Calendar size={14} className="text-slate-400" />
                           {s.fecha}
                         </span>
                       </td>
-                      <td className="p-4 text-sm text-slate-700">
+                      <td role="cell" className="p-4 text-sm text-slate-700">
                         <span className="flex items-center gap-1.5">
                           <Clock size={14} className="text-slate-400" />
                           {formatHora(s.horaInicio)} - {formatHora(s.horaFin)}
                         </span>
                       </td>
-                      <td className="p-4">
-                        <div className="flex flex-col gap-2 max-w-[200px]">
+                      <td role="cell" className="p-4 max-lg:col-span-2">
+                        <div className="flex flex-col gap-2 [overflow-wrap:anywhere] lg:max-w-[200px]">
                           {s.nombreEspacio && (
                             <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700">
                               <MapPin size={14} className="text-blue-500" />
@@ -575,13 +580,14 @@ export const SolicitudesPage: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="max-w-[180px] p-4 text-sm text-slate-600">
+                      <td role="cell" className="p-4 text-sm text-slate-600 max-lg:col-span-2 lg:max-w-[180px]">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500 lg:hidden">Propósito</span>
                         <VistaPreviaProposito texto={s.proposito} id={s.idSolicitud} abrir={() => {
                           setPropositoVisible(s);
                           dialogoProposito.current?.showModal();
                         }} />
                       </td>
-                      <td className="p-4">
+                      <td role="cell" className="p-4 max-lg:col-start-2 max-lg:row-start-1 max-lg:justify-self-end">
                         <div className="flex flex-col gap-1.5">
                           <div>
                             <BadgeEstado
@@ -616,7 +622,7 @@ export const SolicitudesPage: React.FC = () => {
                         </div>
                       </td>
                       {isStaff && vistaActiva === "todas" && (
-                        <td className="p-4">
+                        <td role="cell" className="p-4 max-lg:col-span-2 max-lg:mt-1 max-lg:border-t max-lg:border-slate-100">
                           {!esAltaDireccion && (s.emailUsuario?.toLowerCase() === currentUserEmail.toLowerCase() || s.nombreEspacio) ? (
                             <div className="flex items-center justify-center text-xs text-slate-400 font-medium">
                               <span className="flex items-center gap-1 bg-slate-100 px-2 py-1 rounded-md">
@@ -625,7 +631,7 @@ export const SolicitudesPage: React.FC = () => {
                               </span>
                             </div>
                           ) : (
-                            <div className="flex justify-center gap-2">
+                            <div className="flex flex-wrap justify-center gap-2 max-lg:pt-2 max-lg:[&_button]:min-h-11">
                             {s.estado === "APROBADA" && (
                               <button
                                 onClick={() => {

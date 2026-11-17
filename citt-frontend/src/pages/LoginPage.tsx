@@ -351,7 +351,7 @@ const LoginPage = () => {
         </Boton>
       </Modal>
 
-      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      <div className="min-h-dvh flex items-center justify-center p-3 sm:p-4 relative overflow-hidden"
         style={{ background: "linear-gradient(160deg, #f1f5f9 0%, #e2e8f0 40%, #dbeafe 100%)" }}>
 
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
@@ -369,8 +369,8 @@ const LoginPage = () => {
 
         <div className="relative w-full max-w-[460px]">
           <div className="bg-white border border-blue-100 rounded-3xl shadow-xl shadow-blue-100/60 overflow-hidden">
-            <div className="p-10 flex flex-col items-center">
-              <div className="flex items-center justify-center gap-2 mb-8 mt-2">
+            <div className="p-5 sm:p-10 flex flex-col items-center">
+              <div className="flex items-center justify-center gap-2 mb-5 sm:mb-8 mt-2">
                 <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center">
                   <Cpu size={28} className="text-blue-600" strokeWidth={2.5} />
                 </div>

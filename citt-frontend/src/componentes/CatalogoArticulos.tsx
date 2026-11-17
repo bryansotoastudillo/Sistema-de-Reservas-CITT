@@ -142,7 +142,7 @@ export const CatalogoArticulos: React.FC<CatalogoArticulosProps> = ({
 
       {/* 4. BARRA FLOTANTE DE SELECCIÓN */}
       {(totalItems > 0 || isEmbedded) && (
-        <div className={`${isEmbedded ? 'sticky bottom-0 rounded-b-xl' : 'fixed bottom-0 left-0 right-0 md:left-64'} bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] p-4 px-6 md:px-10 flex flex-col md:flex-row justify-between items-center gap-4 z-40 animate-in slide-in-from-bottom-full duration-300`}>
+        <div className={`${isEmbedded ? 'sticky bottom-0 rounded-b-xl' : 'fixed inset-x-0 bottom-[var(--barra-citt,0px)] lg:bottom-0 lg:left-64'} bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] p-3 sm:px-6 md:px-10 flex flex-col md:flex-row justify-between items-center gap-2 sm:gap-4 z-40 animate-in slide-in-from-bottom-full duration-300`}>
           <div className="flex items-center gap-3 text-slate-700 font-bold">
             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
               <ShoppingCart size={20} />

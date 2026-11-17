@@ -205,7 +205,8 @@ export const FormularioSolicitudPage: React.FC = () => {
       <div className="mb-6 flex items-center gap-4">
         <button
           onClick={() => navigate(-1)}
-          className="p-2 bg-white border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-colors cursor-pointer"
+          className="grid size-11 shrink-0 place-items-center bg-white border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-colors cursor-pointer"
+          aria-label="Volver"
           title="Volver"
         >
           <ArrowLeft size={20} />
@@ -218,18 +219,18 @@ export const FormularioSolicitudPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8 w-full mx-auto animate-in fade-in duration-500">
+      <div className="flex w-full flex-col gap-4 lg:flex-row lg:gap-8 animate-in fade-in duration-500">
 
         {/* LADO IZQUIERDO: FORMULARIO */}
-        <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+        <div className="min-w-0 flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-gray-100 bg-gray-50/50">
             <h2 className="text-lg font-bold text-[#021626] flex items-center gap-2">
               <FileText size={20} className="text-blue-600" />
               Detalles de la Solicitud
             </h2>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-8 flex flex-col gap-6" noValidate>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4 sm:gap-6 sm:p-6 lg:p-8 [&_input]:min-w-0 [&_select]:min-w-0" noValidate>
             {puedeIndicarSolicitante && <label className="text-sm font-bold text-gray-700">
               Correo del solicitante <span className="font-normal text-slate-500">(opcional)</span>
               <input type="email" value={correoSolicitante} maxLength={254}
@@ -239,13 +240,14 @@ export const FormularioSolicitudPage: React.FC = () => {
               <span className="mt-1 block font-normal text-slate-500">Ingresa su correo si haces la solicitud en nombre de otra persona.</span>
             </label>}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <label htmlFor="solicitud-fecha" className="text-sm font-bold text-gray-700 flex items-center gap-2">
                   <Calendar size={16} className="text-blue-500" /> Fecha
                 </label>
                 <input
                   type="date"
+                  id="solicitud-fecha"
                   value={fecha}
                   onChange={e => { setFecha(e.target.value); setFieldErrors(p => ({ ...p, fecha: "" })); }}
                   className={`w-full px-4 py-3 border rounded-xl focus:ring-2 transition-all text-gray-700 outline-none ${fieldErrors.fecha ? 'border-red-500 focus:ring-red-500/20' : 'border-gray-200 focus:ring-blue-500/20 focus:border-blue-500'}`}
@@ -254,11 +256,12 @@ export const FormularioSolicitudPage: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <label htmlFor="solicitud-integrantes" className="text-sm font-bold text-gray-700 flex items-center gap-2">
                   <Users size={16} className="text-blue-500" /> N° Integrantes (Opcional)
                 </label>
                 <input
                   type="number"
+                  id="solicitud-integrantes"
                   min="1"
                   placeholder="Ej: 3"
                   value={cantidadIntegrantes}
@@ -268,13 +271,14 @@ export const FormularioSolicitudPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6">
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <label htmlFor="solicitud-inicio" className="text-sm font-bold text-gray-700 flex items-center gap-2">
                   <Clock size={16} className="text-blue-500" /> Hora Inicio
                 </label>
                 <input
                   type="time"
+                  id="solicitud-inicio"
                   min="08:00"
                   max="22:00"
                   value={horaInicio}
@@ -285,11 +289,12 @@ export const FormularioSolicitudPage: React.FC = () => {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <label htmlFor="solicitud-fin" className="text-sm font-bold text-gray-700 flex items-center gap-2">
                   <Clock size={16} className="text-blue-500" /> Hora Fin
                 </label>
                 <input
                   type="time"
+                  id="solicitud-fin"
                   min="08:00"
                   max="22:00"
                   value={horaFin}
@@ -301,10 +306,11 @@ export const FormularioSolicitudPage: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+              <label htmlFor="solicitud-espacio" className="text-sm font-bold text-gray-700 flex items-center gap-2">
                 <MapPin size={16} className="text-blue-500" /> Espacio Físico (Opcional)
               </label>
               <select
+                id="solicitud-espacio"
                 value={idEspacioLocal || ""}
                 onChange={e => {
                   const val = e.target.value ? Number(e.target.value) : null;
@@ -334,7 +340,7 @@ export const FormularioSolicitudPage: React.FC = () => {
                 <p className="mb-3 text-sm text-slate-600">Marca los recursos que necesitas. Todas las opciones son opcionales.</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {(Object.keys(recursosCowork) as RecursoCowork[]).map((recurso) => (
-                    <label key={recurso} className="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
+                    <label key={recurso} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-white/60 px-2 text-sm text-slate-800">
                       <input type="checkbox" className="size-4 accent-blue-700"
                         checked={seleccionCowork.includes(recurso)}
                         onChange={(event) => {
@@ -383,9 +389,10 @@ export const FormularioSolicitudPage: React.FC = () => {
             )}
 
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-bold text-gray-700">Propósito de la solicitud</label>
+              <label htmlFor="solicitud-proposito" className="text-sm font-bold text-gray-700">Propósito de la solicitud</label>
               <textarea
                 rows={4}
+                id="solicitud-proposito"
                 value={proposito}
                 onChange={e => { setProposito(e.target.value); setFieldErrors(p => ({ ...p, proposito: "" })); }}
                 placeholder="Indica brevemente para qué necesitas los recursos (Ej: Trabajo de título, proyecto personal, clase práctica...)"
@@ -411,7 +418,7 @@ export const FormularioSolicitudPage: React.FC = () => {
             )}
 
             {errorMsj && (
-              <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium border border-red-100">
+              <div role="alert" className="p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium border border-red-100">
                 {errorMsj}
               </div>
             )}
@@ -442,14 +449,14 @@ export const FormularioSolicitudPage: React.FC = () => {
         </div>
 
         {/* LADO DERECHO: RESUMEN DE RECURSOS */}
-        <div className="w-full lg:w-[350px] flex flex-col gap-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-6">
-            <div className="p-6 bg-[#021626] text-white">
+        <div className="flex w-full shrink-0 flex-col gap-6 lg:w-[350px]">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden lg:sticky lg:top-6">
+            <div className="p-4 sm:p-6 bg-[#021626] text-white">
               <h3 className="font-bold text-lg">Resumen de Recursos</h3>
               <p className="text-blue-300 text-xs mt-1">Lo que estás solicitando</p>
             </div>
 
-            <div className="p-6 flex flex-col gap-6">
+            <div className="p-4 sm:p-6 flex flex-col gap-6">
 
               {exclusividad ? (
                 <div className="flex flex-col gap-3">

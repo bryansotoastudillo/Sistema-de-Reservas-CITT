@@ -76,66 +76,65 @@ const AnimatedBrandItem: React.FC<AnimatedBrandItemProps> = ({
     >
       <div className="overflow-hidden">
         <div
-          className={`relative flex items-center justify-between p-4 mb-3 rounded-xl transition-colors ${
+          className={`relative mb-3 flex flex-col gap-3 rounded-xl p-3 transition-colors md:flex-row md:items-center md:justify-between md:p-4 ${
             isSelected
               ? "border-2 border-blue-600 bg-white shadow-sm"
               : "border border-slate-200 bg-white hover:border-blue-300"
           }`}
         >
           {/* Línea horizontal conectora del árbol */}
-          <div className="absolute -left-6 top-1/2 w-6 border-t-2 border-slate-200 -translate-y-1/2" />
+          <div className="absolute -left-6 top-1/2 hidden w-6 -translate-y-1/2 border-t-2 border-slate-200 md:block" />
 
           {/* Lado Izquierdo: Nombre de Marca */}
           <div className="flex-1">
-            <h4 className="text-lg font-bold text-slate-800 m-0 leading-none">
+            <h4 className="m-0 text-base font-bold leading-tight text-slate-800 [overflow-wrap:anywhere] md:text-lg">
               {item.marca}
             </h4>
           </div>
 
           {/* Lado Derecho: Controles interactivos */}
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center justify-between gap-2 md:justify-end md:gap-4">
             {isSelected && (
-              <div className="flex items-center bg-blue-50 border border-blue-100 rounded-lg overflow-hidden shadow-sm h-9 animate-in fade-in zoom-in duration-200">
+              <div className="flex h-11 items-center overflow-hidden rounded-lg border border-blue-100 bg-blue-50 shadow-sm">
                 <button
+                  type="button"
+                  aria-label={`Aumentar cantidad de ${item.marca}`}
                   onClick={() => handleIncrementar(item.marca, item.cantidad)}
                   disabled={cantidadSeleccionada >= item.cantidad}
-                  className="px-3 h-full text-blue-600 hover:bg-blue-100 font-black transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="h-full min-w-11 text-blue-600 hover:bg-blue-100 font-black transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   +
                 </button>
-                <div className="px-3 h-full flex items-center justify-center bg-white border-x border-blue-100 font-bold text-slate-800 min-w-[3rem]">
+                <div aria-live="polite" className="flex h-full min-w-9 items-center justify-center border-x border-blue-100 bg-white px-2 font-bold text-slate-800">
                   {cantidadSeleccionada}
                 </div>
                 <button
+                  type="button"
+                  aria-label={`Reducir cantidad de ${item.marca}`}
                   onClick={() => handleDecrementar(item.marca)}
-                  className="px-3 h-full text-blue-600 hover:bg-blue-100 font-black transition-colors"
+                  className="h-full min-w-11 text-blue-600 hover:bg-blue-100 font-black transition-colors"
                 >
                   -
                 </button>
               </div>
             )}
 
-            <span className="text-sm font-medium text-slate-500 w-32 text-right">
-              Stock: {item.cantidad} Unidades
+            <span className="text-sm font-medium text-slate-600 md:text-right">
+              {item.cantidad} disponibles
             </span>
 
             {/* Botón de Acción Final */}
-            <div className="w-40 flex justify-end">
-              {isSelected ? (
-                <span className="bg-slate-100 text-slate-600 text-xs font-bold px-4 py-2 rounded-full whitespace-nowrap animate-in fade-in duration-200">
-                  Selección actual
-                </span>
-              ) : (
+            {!isSelected && (
                 <button
+                  type="button"
                   onClick={() => {
                     onActualizarSeleccion(item.marca, 1);
                   }}
-                  className="bg-[#007bff] hover:bg-blue-700 text-white text-sm font-bold px-6 py-2 rounded-lg transition-colors shadow-sm cursor-pointer whitespace-nowrap"
+                  className="min-h-11 whitespace-nowrap rounded-lg bg-[#007bff] px-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700 md:px-6"
                 >
                   Seleccionar
                 </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -161,31 +160,33 @@ const CategoriaAccordion: React.FC<CategoriaAccordionProps> = ({
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden transition-all mb-4">
-      <div
-        className="flex items-center justify-between p-5 cursor-pointer hover:bg-slate-50 transition-colors"
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        className="flex w-full items-center justify-between gap-2 p-3 text-left transition-colors hover:bg-slate-50 sm:p-5"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm">
+        <span className="flex min-w-0 items-center gap-2 sm:gap-4">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 shadow-sm" aria-hidden="true">
             {renderIcon()}
-          </div>
-          <h3 className="text-lg font-bold text-slate-800 m-0">
-            {categoria.nombreCategoria}
-          </h3>
-        </div>
-
-        <div className="flex items-center gap-6">
-          <span className="text-sm font-medium text-slate-600">
-            Stock Total: {categoria.totalCategoria} Unidades
           </span>
-          <div className="text-slate-400 bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm flex items-center justify-center transition-transform duration-300">
+          <span className="break-words font-bold text-slate-800 sm:text-lg">
+            {categoria.nombreCategoria}
+          </span>
+        </span>
+
+        <span className="flex shrink-0 items-center gap-2 sm:gap-5">
+          <span className="text-xs font-medium text-slate-600 sm:text-sm">
+            {categoria.totalCategoria} disponibles
+          </span>
+          <span className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-1.5 text-slate-500" aria-hidden="true">
             {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-          </div>
-        </div>
-      </div>
+          </span>
+        </span>
+      </button>
       {isOpen && (
-        <div className="px-6 pb-6 pt-2">
-          <div className="ml-5 pl-6 border-l-2 border-slate-200 relative pt-1">
+        <div className="px-3 pb-4 pt-2 sm:px-6 sm:pb-6">
+          <div className="relative pt-1 md:ml-5 md:border-l-2 md:border-slate-200 md:pl-6">
             {categoria.desgloseMarcas.map((item, idx) => (
               <AnimatedBrandItem
                 key={item.marca}
