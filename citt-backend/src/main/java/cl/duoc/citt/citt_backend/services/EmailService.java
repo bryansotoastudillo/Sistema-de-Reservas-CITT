@@ -149,6 +149,21 @@ public class EmailService {
         }
     }
 
+    public void enviarNuevaClaveProvisoria(String destinatario, String cuenta, String clave) {
+        try {
+            enviarCorreo(destinatario, CorreoCitt.crear(
+                    "Nueva clave provisoria de Reservas CITT - Duoc UC", CorreoCitt.Estado.INFORMATIVO,
+                    "Tu nueva clave provisoria",
+                    "Ingresa con tu correo institucional y esta clave. El sistema te pedirá cambiarla al entrar.",
+                    Map.of("Correo para iniciar sesión", cuenta, "Contraseña provisoria", clave),
+                    "Iniciar sesión", "https://administracion.cittvalparaiso.cl/"));
+        } catch (Exception e) {
+            log.warn("No se pudo enviar la clave provisoria a {} ({})", destinatario, e.getClass().getSimpleName());
+            throw new ReglaNegocioException("No se pudo enviar la clave provisoria. Intenta más tarde.",
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
     public void enviarPasswordRecuperacion(String destinatario, String codigo) {
         try {
             enviarCorreo(destinatario, CorreoCitt.crear(

@@ -6,6 +6,7 @@ import cl.duoc.citt.citt_backend.dto.UsuarioUpdateDTO;
 import cl.duoc.citt.citt_backend.model.Rol;
 import cl.duoc.citt.citt_backend.model.Usuario;
 import cl.duoc.citt.citt_backend.repositories.RolRepository;
+import cl.duoc.citt.citt_backend.repositories.RecuperarPasswordRepository;
 import cl.duoc.citt.citt_backend.repositories.UsuarioRepository;
 import cl.duoc.citt.citt_backend.exception.ReglaNegocioException;
 import cl.duoc.citt.citt_backend.security.DominiosInstitucionales;
@@ -16,10 +17,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 
@@ -31,6 +35,42 @@ public class UsuarioService {
     private final RolRepository rolRepository;
     private final RefreshTokenService refreshTokenService;
     private final DominiosInstitucionales dominios;
+    private final PasswordEncoder passwordEncoder;
+    private final RecuperarPasswordRepository recuperarPasswordRepository;
+    private final EmailService emailService;
+
+    @Transactional
+    public void enviarClaveProvisoria(Long id, String correoAlternativo, boolean titularConfirmado, String administrador) {
+        if (!"admin@duoc.cl".equalsIgnoreCase(administrador)) {
+            throw new ReglaNegocioException("Solo admin@duoc.cl puede emitir claves provisorias.", HttpStatus.FORBIDDEN);
+        }
+        Usuario usuario = buscarBloqueado(id);
+        if (!usuario.isHabilitado() || usuario.getEmail().equalsIgnoreCase(administrador)) {
+            throw new ReglaNegocioException("Selecciona otra cuenta habilitada.");
+        }
+        String destino = usuario.getEmail();
+        if (correoAlternativo != null && !correoAlternativo.isBlank()
+                && !destino.equalsIgnoreCase(correoAlternativo)) {
+            if (!destino.toLowerCase(Locale.ROOT).endsWith("@duoc.cl")
+                    || !usuario.nombresRoles().contains("ADMINISTRATIVO")
+                    || usuario.nombresRoles().stream().anyMatch(Set.of("DIRECTOR", "COORDINADOR")::contains)) {
+                throw new ReglaNegocioException("Esta cuenta debe recibir su clave en su correo institucional.");
+            }
+            if (!titularConfirmado) {
+                throw new ReglaNegocioException("Confirma que el correo alternativo pertenece al titular de la cuenta.");
+            }
+            destino = correoAlternativo;
+        }
+
+        String clave = UUID.randomUUID().toString();
+        usuario.setPassword(passwordEncoder.encode(clave));
+        usuario.setDebeCambiarPassword(true);
+        usuario.setVersionAcceso(usuario.getVersionAcceso() + 1);
+        refreshTokenService.eliminarPorUsuario(id);
+        recuperarPasswordRepository.deleteByUsuario(usuario);
+        usuarioRepository.flush();
+        emailService.enviarNuevaClaveProvisoria(destino, usuario.getEmail(), clave);
+    }
 
     @Transactional
     public UsuarioResponseDTO cambiarEstado(Long id, boolean habilitado, String director) {

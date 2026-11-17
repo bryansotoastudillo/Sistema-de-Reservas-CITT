@@ -3,6 +3,9 @@ package cl.duoc.citt.citt_backend.controllers;
 import cl.duoc.citt.citt_backend.dto.UsuarioResponseDTO;
 import cl.duoc.citt.citt_backend.dto.UsuarioUpdateDTO;
 import cl.duoc.citt.citt_backend.services.UsuarioService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +24,19 @@ public class UsuarioController {
     private final UsuarioService usuarioService;
 
     public record EstadoCuenta(@jakarta.validation.constraints.NotNull Boolean habilitado) {}
+    public record ClaveProvisoria(
+            @Email(message = "El correo alternativo no es válido.")
+            @Size(max = 254, message = "El correo alternativo es demasiado largo.") String correoAlternativo,
+            boolean titularConfirmado) {}
+
+    @PostMapping("/{id}/clave-provisoria")
+    @PreAuthorize("hasRole('DIRECTOR') and authentication.name.equalsIgnoreCase('admin@duoc.cl')")
+    public ResponseEntity<Void> enviarClaveProvisoria(@PathVariable Long id,
+            @Valid @RequestBody ClaveProvisoria solicitud, Authentication autenticacion) {
+        usuarioService.enviarClaveProvisoria(id, solicitud.correoAlternativo(),
+                solicitud.titularConfirmado(), autenticacion.getName());
+        return ResponseEntity.noContent().build();
+    }
 
     @PatchMapping("/{id}/estado")
     @PreAuthorize("hasRole('DIRECTOR')")

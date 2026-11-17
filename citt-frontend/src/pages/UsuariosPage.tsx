@@ -51,7 +51,18 @@ const UsuariosPage = () => {
   const [usuarioEstado, setUsuarioEstado] = useState<UsuarioData | null>(null);
   const [guardandoEstado, setGuardandoEstado] = useState(false);
   const [errorEstado, setErrorEstado] = useState('');
+  const [usuarioClave, setUsuarioClave] = useState<UsuarioData | null>(null);
+  const [correoAlternativo, setCorreoAlternativo] = useState('');
+  const [titularConfirmado, setTitularConfirmado] = useState(false);
+  const [enviandoClave, setEnviandoClave] = useState(false);
+  const [errorClave, setErrorClave] = useState('');
   const esDirector = rolActivoActual === 'DIRECTOR';
+  const puedeEmitirClave = userData?.email.toLowerCase() === 'admin@duoc.cl' && userData.roles.includes('DIRECTOR');
+  const admiteAlternativo = usuarioClave?.email.toLowerCase().endsWith('@duoc.cl')
+    && usuarioClave.roles.includes('ADMINISTRATIVO')
+    && !usuarioClave.roles.some(rol => rol === 'DIRECTOR' || rol === 'COORDINADOR');
+  const destinoAlternativo = correoAlternativo.trim();
+  const confirmarAlternativo = !!destinoAlternativo && destinoAlternativo.toLowerCase() !== usuarioClave?.email.toLowerCase();
   const rolesGestionables = TODOS_LOS_ROLES.filter(rol => esDirector || rol !== 'DIRECTOR');
   const dominioNuevo = emailNuevo.trim().toLowerCase().split('@')[1];
   const rolPorDefecto = reglasDominio.find(regla => regla.dominio === dominioNuevo)?.rol;
@@ -165,6 +176,34 @@ const UsuariosPage = () => {
     }
   };
 
+  const abrirModalClave = (usuario: UsuarioData) => {
+    setCorreoAlternativo('');
+    setTitularConfirmado(false);
+    setErrorClave('');
+    setUsuarioClave(usuario);
+  };
+
+  const enviarClave = async (evento: React.FormEvent<HTMLFormElement>) => {
+    evento.preventDefault();
+    if (!usuarioClave || enviandoClave) return;
+    setEnviandoClave(true);
+    setErrorClave('');
+    setSuccessMsg('');
+    try {
+      await api.post(`/usuarios/${usuarioClave.id}/clave-provisoria`, {
+        correoAlternativo: destinoAlternativo || null, titularConfirmado,
+      });
+      setSuccessMsg(`Clave provisoria enviada a ${destinoAlternativo || usuarioClave.email}.`);
+      setUsuarioClave(null);
+    } catch (error) {
+      setErrorClave(isAxiosError<{ mensaje?: string }>(error)
+        ? error.response?.data?.mensaje || 'No se pudo enviar la clave provisoria.'
+        : 'No se pudo enviar la clave provisoria.');
+    } finally {
+      setEnviandoClave(false);
+    }
+  };
+
   const abrirModalEdicion = (usuario: UsuarioData) => {
     setUsuarioEditando(usuario);
     setRolesEdicion(usuario.roles);
@@ -262,6 +301,30 @@ const UsuariosPage = () => {
 
       <SessionTimeout />
 
+      <Modal isOpen={usuarioClave !== null} onClose={() => !enviandoClave && setUsuarioClave(null)}
+        titulo="Enviar clave provisoria">
+        {usuarioClave && <form onSubmit={enviarClave} className="space-y-4">
+          <p className="text-sm text-slate-700">Cuenta <strong className="break-all">{usuarioClave.email}</strong></p>
+          <p className="text-sm text-slate-600">La nueva clave reemplazará la actual y la persona deberá cambiarla al iniciar sesión.</p>
+          {admiteAlternativo && <label className="block text-sm font-semibold text-slate-800">
+            Correo alternativo (opcional)
+            <input type="email" maxLength={254} value={correoAlternativo} disabled={enviandoClave}
+              onChange={e => { setCorreoAlternativo(e.target.value); setTitularConfirmado(false); }}
+              className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 font-normal" />
+            <span className="mt-1 block font-normal text-slate-600">Úsalo si el correo institucional no recibe los mensajes.</span>
+          </label>}
+          {confirmarAlternativo && <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" required checked={titularConfirmado} disabled={enviandoClave}
+              onChange={e => setTitularConfirmado(e.target.checked)} />
+            Confirmé que el correo alternativo pertenece al titular de la cuenta.
+          </label>}
+          {errorClave && <p role="alert" className="text-sm text-red-700">{errorClave}</p>}
+          <button type="submit" disabled={enviandoClave || (confirmarAlternativo && !titularConfirmado)}
+            className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+            {enviandoClave ? "Enviando…" : "Generar y enviar"}
+          </button>
+        </form>}
+      </Modal>
       <Modal isOpen={usuarioEstado !== null} onClose={() => !guardandoEstado && setUsuarioEstado(null)}
         titulo={usuarioEstado?.habilitado === false ? "Habilitar cuenta" : "Deshabilitar cuenta"}
         icono={<Shield size={20} />}>
@@ -499,6 +562,12 @@ const UsuariosPage = () => {
                             >
                               <Edit size={18} />
                             </button>}
+                            {puedeEmitirClave && usuario.habilitado !== false && usuario.email.toLowerCase() !== 'admin@duoc.cl' &&
+                              <button type="button" onClick={() => abrirModalClave(usuario)}
+                                aria-label={`Enviar clave provisoria a ${usuario.email}`}
+                                className="rounded-lg px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50">
+                                Enviar clave provisoria
+                              </button>}
                             {esDirector && usuario.email.toLowerCase() !== userData.email.toLowerCase() &&
                               <button type="button" onClick={() => {
                                 setErrorEstado('');
