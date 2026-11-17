@@ -31,7 +31,8 @@ export type Acabado = readonly [superficie: string, frente: string, lateral: str
 export type Mueble = {
   base: Punto[];
   altura: number;
-  tipo?: "mesa" | "asiento";
+  tipo?: "mesa" | "asiento" | "sillaReunion";
+  haciaIzquierda?: boolean;
   monitor?: boolean;
   nivel?: number;
   acabado?: Acabado;
@@ -75,6 +76,10 @@ const mesa = (x: number, y: number, ancho: number, fondo: number, monitor = fals
 const asiento = (x: number, y: number, ancho = 17, fondo = 17, acabado: Acabado = azul): Mueble => ({
   base: rectangulo(x, y, ancho, fondo), altura: 14, tipo: "asiento",
   acabado, patas: "#d2d4cf",
+});
+
+const sillaReunion = (x: number, y: number, ancho: number, haciaIzquierda = false): Mueble => ({
+  base: rectangulo(x, y, ancho, 30), altura: 32, tipo: "sillaReunion", haciaIzquierda,
 });
 
 function cubiculo(numero: number, x: number, y: number, haciaElNorte = false): Zona {
@@ -212,7 +217,7 @@ const gruposCowork = [[310, 110], [211, 212], [355, 212]] as const;
 export const mueblesEditables = [
   ...mueblesDeZona("MR", "mesa", [{ ...mesa(49, 188, 49, 122), acabado: madera, patas: "#d5a322" }]),
   ...mueblesDeZona("MR", "silla", [192, 232, 272].flatMap(y => [
-    asiento(30, y, 19, 30, tapiz), asiento(99, y, 18, 30, tapiz),
+    sillaReunion(30, y, 19), sillaReunion(99, y, 18, true),
   ])),
   ...mueblesDeZona("CW", "mesa", gruposCowork.flatMap(([x, y]) =>
     [0, 41, 82].map(dx => mesa(x + dx, y, 39, 31)))),

@@ -28,6 +28,9 @@ export function crearCamara(grados: number, inclinacion: number) {
     profundidad(base: Punto[]) {
       return Math.max(...base.map((punto) => plano(punto)[1]));
     },
+    profundidadPunto([x, y]: Punto, altura: number) {
+      return (x * seno + y * coseno) * Math.cos(elevacion) + altura * Math.sin(elevacion);
+    },
     caraVisible(inicio: Punto, fin: Punto) {
       return (inicio[0] - fin[0]) * coseno + (fin[1] - inicio[1]) * seno > 0;
     },
