@@ -1,21 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useSeguridad } from "../hooks/useSeguridad"; 
 import { Info, DoorOpen, Briefcase, Users } from "lucide-react";
-import api from "../api/axiosConfig";
+import { useOcupacionEspacios } from "../hooks/useOcupacionEspacios";
 import EstadoActualEspacios from "../componentes/EstadoActualEspacios";
 import BarraOcupacion from "../componentes/BarraOcupacion";
 
 import { Link, useNavigate } from "react-router-dom";
 import { puedeRegularizarReserva } from "./RegularizarReservaPage";
-
-interface Espacio {
-  id: number;
-  nombre: string;
-  comentarios: string;
-  capacidad: number;
-  estado: string;
-  enUsoAhora?: boolean;
-}
 
 export const SolicitarReservaPage: React.FC = () => {
   const { isVerificando } = useSeguridad(); 
@@ -28,30 +19,16 @@ export const SolicitarReservaPage: React.FC = () => {
   if (rolUpper.includes("PROFESOR") || rolUpper.includes("DOCENTE")) rolUser = "PROFESOR";
   else if (rolUpper.includes("AYUDANTE")) rolUser = "AYUDANTE";
   
-  const [espacios, setEspacios] = useState<Espacio[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { consulta } = useOcupacionEspacios(!isVerificando);
+  const espacios = typeof consulta === "object" ? consulta.espacios : [];
+  const isLoading = consulta === "cargando";
 
-  const fetchEspacios = async () => {
-    try {
-      setIsLoading(true);
-      const response = await api.get("/espacios");
-      setEspacios(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error("Error al cargar los espacios:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!isVerificando) {
-      fetchEspacios();
-    }
-  }, [isVerificando]);
-
-  const renderEstadoLocal = (estado: string) => {
+  const renderEstadoLocal = (estado: string, enUsoAhora: boolean) => {
     const est = estado ? estado.toUpperCase() : "DESCONOCIDO";
     if (est === "DISPONIBLE") {
+      if (enUsoAhora) {
+        return <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-bold border border-amber-200">Ocupado</span>;
+      }
       return <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold border border-emerald-200">🟢 Disponible</span>;
     }
     if (est === "MANTENCION") {
@@ -103,6 +80,8 @@ export const SolicitarReservaPage: React.FC = () => {
           <div className="flex justify-center items-center py-20">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#003b73]"></div>
           </div>
+        ) : consulta === "error" ? (
+          <p role="alert" className="rounded-xl bg-white p-4 text-sm text-slate-700">No se pudo consultar la ocupación de los espacios.</p>
         ) : espacios.length === 0 ? (
           <div className="bg-white rounded-2xl p-16 shadow-sm border border-gray-100 text-center">
             <Info size={44} className="mx-auto text-gray-300 mb-4" />
@@ -132,7 +111,7 @@ export const SolicitarReservaPage: React.FC = () => {
                         </span>
                         <h3 className="text-xl font-bold text-[#021626]">{espacio.nombre}</h3>
                       </div>
-                      {renderEstadoLocal(espacio.estado)}
+                      {renderEstadoLocal(espacio.estado, enUsoAhora)}
                     </div>
 
                     <div className="flex flex-col gap-3 mb-6 flex-grow mt-2">
