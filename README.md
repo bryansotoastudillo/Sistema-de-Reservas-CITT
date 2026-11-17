@@ -128,7 +128,7 @@ spring.mail.password=${MAIL_PASSWORD:contraseña-de-aplicacion}
 | :--- | :--- | :--- | :--- |
 | `@duocuc.cl` | Alumno | Manual y autorregistro | `CITT_DOMINIOS_ALUMNO` |
 | `@profesor.duoc.cl` | Docente | Manual y autorregistro | `CITT_DOMINIOS_DOCENTE` |
-| `@duoc.cl` | Administrativo | Manual desde Registrar Usuarios | `CITT_DOMINIOS_ADMINISTRATIVO` |
+| `@duoc.cl` | Administrativo | Manual y autorregistro | `CITT_DOMINIOS_ADMINISTRATIVO` |
 
 Las propiedades están en [application.properties](citt-backend/src/main/resources/application.properties). Admiten varios dominios separados por comas. Registro, inicio de sesión y renovación usan la misma política. `CITT_CORREOS_EXCEPCION` admite correos individuales separados por comas para alta manual e inicio de sesión, con roles asignados por quien registra.
 

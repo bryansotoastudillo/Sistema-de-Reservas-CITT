@@ -20,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -53,7 +56,7 @@ class DominiosInstitucionalesPostgresTest {
     }
 
     @Test
-    void autorregistroAceptaAlumnoYDocenteYExigeAltaManualParaAdministrativo() throws Exception {
+    void autorregistroAsignaAlumnoDocenteYAdministrativo() throws Exception {
         mvc.perform(post("/api/auth/auto-registro").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"estudiante@duocuc.cl\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.roles[0]").value("ALUMNO"));
@@ -61,8 +64,13 @@ class DominiosInstitucionalesPostgresTest {
                         .content("{\"email\":\"docente@profesor.duoc.cl\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.roles[0]").value("DOCENTE"));
         mvc.perform(post("/api/auth/auto-registro").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"personal@duoc.cl\"}")).andExpect(status().isBadRequest());
-        assertThat(usuarios.findByEmail("personal@duoc.cl")).isEmpty();
+                        .content("{\"email\":\"personal@duoc.cl\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.roles[0]").value("ADMINISTRATIVO"));
+        var cuenta = usuarios.findByEmail("personal@duoc.cl").orElseThrow();
+        assertThat(cuenta.isDebeCambiarPassword()).isTrue();
+        verify(correo).enviarPasswordProvisoria(eq("personal@duoc.cl"), anyString());
+        mvc.perform(get("/api/usuarios").cookie(new Cookie("auth_token", jwt.generarToken(cuenta))))
+                .andExpect(status().isForbidden());
     }
 
     @Test

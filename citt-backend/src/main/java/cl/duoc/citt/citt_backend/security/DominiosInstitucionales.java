@@ -26,7 +26,7 @@ public class DominiosInstitucionales {
             @Value("${app.dominios.correos-manuales}") String excepciones) {
         agregar(alumnos, "ALUMNO", true);
         agregar(docentes, "DOCENTE", true);
-        agregar(administrativos, "ADMINISTRATIVO", false);
+        agregar(administrativos, "ADMINISTRATIVO", true);
         correosManuales = Arrays.stream(excepciones.split(","))
                 .map(String::strip).filter(correo -> !correo.isEmpty())
                 .map(correo -> correo.toLowerCase(Locale.ROOT)).collect(Collectors.toUnmodifiableSet());

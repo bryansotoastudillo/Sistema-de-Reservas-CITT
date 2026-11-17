@@ -94,7 +94,7 @@ public class AutenticacionService {
     }
 
     /**
-     * AUTO-REGISTRO: El usuario crea su propia cuenta (solo Alumnos y Docentes).
+     * AUTO-REGISTRO: La política del dominio asigna el rol y la clave provisoria se envía al correo.
      */
     public RegistroResponseDTO autoRegistrar(AutoRegistroRequestDTO solicitud) {
         if (solicitud.getEmail() == null || solicitud.getEmail().isBlank()) {
