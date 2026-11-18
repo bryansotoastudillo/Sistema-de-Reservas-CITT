@@ -2,7 +2,7 @@ import React from "react";
 import { useSeguridad } from "../hooks/useSeguridad"; 
 import { Info, DoorOpen, Briefcase, Users } from "lucide-react";
 import { useOcupacionEspacios } from "../hooks/useOcupacionEspacios";
-import EstadoActualEspacios from "../componentes/EstadoActualEspacios";
+import { VistaOcupacionCitt } from "../componentes/planoCitt/VistaOcupacionCitt";
 import BarraOcupacion from "../componentes/BarraOcupacion";
 
 import { Link, useNavigate } from "react-router-dom";
@@ -19,7 +19,7 @@ export const SolicitarReservaPage: React.FC = () => {
   if (rolUpper.includes("PROFESOR") || rolUpper.includes("DOCENTE")) rolUser = "PROFESOR";
   else if (rolUpper.includes("AYUDANTE")) rolUser = "AYUDANTE";
   
-  const { consulta } = useOcupacionEspacios(!isVerificando);
+  const { consulta, actualizar } = useOcupacionEspacios(!isVerificando);
   const espacios = typeof consulta === "object" ? consulta.espacios : [];
   const isLoading = consulta === "cargando";
 
@@ -66,11 +66,16 @@ export const SolicitarReservaPage: React.FC = () => {
       <div className="flex flex-col gap-6 animate-in fade-in duration-500">
 
 
-        {!isLoading && espacios.length > 0 && (
-          <div className="w-full mb-2">
-            <EstadoActualEspacios espacios={espacios} />
+        <section aria-labelledby="ocupacion-actual-titulo" className="min-w-0 space-y-3">
+          <div>
+            <h2 id="ocupacion-actual-titulo" className="text-lg font-bold text-slate-800">Ocupación actual de los espacios</h2>
+            <p className="text-sm text-slate-600">Consulta qué espacios están libres u ocupados ahora. Los estados se actualizan cada 30 segundos.</p>
+            <Link to="/calendario" className="inline-flex min-h-11 items-center text-sm font-semibold text-[#003b73] underline">
+              Consultar horarios reservados
+            </Link>
           </div>
-        )}
+          <VistaOcupacionCitt consulta={consulta} actualizar={actualizar} permitirEdicion={false} />
+        </section>
 
         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-2">
           Detalle de Equipamiento

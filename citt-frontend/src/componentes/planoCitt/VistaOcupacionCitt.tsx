@@ -27,9 +27,10 @@ const horaSede = new Intl.DateTimeFormat("es-CL", {
   hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23", timeZone: "America/Santiago",
 });
 
-export function VistaOcupacionCitt({ consulta, actualizar, onCambiarEstado, children }: {
+export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = true, onCambiarEstado, children }: {
   consulta: ConsultaEspacios;
   actualizar: () => void;
+  permitirEdicion?: boolean;
   onCambiarEstado?: (espacio: Espacio) => void;
   children?: ReactNode;
 }) {
@@ -73,7 +74,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, onCambiarEstado, chil
 
   useEffect(() => {
     const consulta = new AbortController();
-    api.get<Distribucion>("/plano-citt", { signal: consulta.signal })
+    api.get<Distribucion>(permitirEdicion ? "/plano-citt" : "/plano-citt/visor", { signal: consulta.signal })
       .then(({ data }) => {
         if (!consulta.signal.aborted) setDistribucion(data);
       })
@@ -81,7 +82,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, onCambiarEstado, chil
         if (!consulta.signal.aborted) setErrorPlano("No se pudo cargar la distribución guardada.");
       });
     return () => consulta.abort();
-  }, [intentoPlano]);
+  }, [intentoPlano, permitirEdicion]);
 
   function mover(clave: string, dx: number, dy: number, grados = 0) {
     const objeto = objetosEditables.find((valor) => valor.clave === clave);
@@ -164,7 +165,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, onCambiarEstado, chil
           {pantallaCompleta ? <Minimize size={15} aria-hidden="true" /> : <Maximize size={15} aria-hidden="true" />}
           {pantallaCompleta ? "Salir de pantalla completa" : "Pantalla completa"}
         </button>
-        {!editar && distribucion && <button type="button" onClick={() => {
+        {permitirEdicion && !editar && distribucion && <button type="button" onClick={() => {
           setBorrador(distribucion.posiciones);
           setErrorPlano("");
         }} className="inline-flex items-center gap-2 rounded-lg bg-[#003b73] px-3 py-2 text-sm font-semibold text-white">
