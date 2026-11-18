@@ -198,9 +198,10 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
       </p>}
       {consulta === "cargando" && <p role="status" className="px-4 py-3 text-sm text-slate-600">Consultando la ocupación de los espacios…</p>}
       {consulta === "error" && <p role="alert" className="bg-amber-50 px-4 py-3 text-sm text-amber-900">No se pudo consultar la ocupación. Pulsa Actualizar para volver a intentarlo.</p>}
-      <div className={`grid min-w-0 xl:grid-cols-[minmax(0,1fr)_250px] ${pantallaCompleta
-        ? "min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_250px] lg:grid-rows-[minmax(0,1fr)]" : ""}`}>
-        <figure className={`min-w-0 bg-[#e4ecee] ${pantallaCompleta ? "flex min-h-0 flex-col" : ""}`}>
+      <div className={`min-w-0 ${pantallaCompleta
+        ? "min-h-0 flex-1 overflow-y-auto lg:grid lg:grid-cols-[minmax(0,1fr)_250px] lg:grid-rows-[minmax(0,1fr)]"
+        : "grid xl:grid-cols-[minmax(0,1fr)_250px]"}`}>
+        <figure className={`min-w-0 bg-[#e4ecee] ${pantallaCompleta ? "flex flex-col lg:min-h-0" : ""}`}>
           <div role="group" aria-label="Controles de la vista 3D" className="flex shrink-0 flex-wrap items-center gap-1 px-3 pt-3 md:px-5">
             <button type="button" aria-label="Girar a la izquierda" title="Girar a la izquierda"
               onClick={() => girar(-15)}
@@ -231,7 +232,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
               <ZoomIn size={18} aria-hidden="true" />
             </button>
           </div>
-          <div className={pantallaCompleta ? "h-[60dvh] lg:h-auto lg:min-h-0 lg:flex-1" : "overflow-x-auto"}
+          <div className={pantallaCompleta ? "h-[60dvh] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1 lg:shrink" : "overflow-x-auto"}
             tabIndex={0} aria-label="Vista 3D desplazable"
             onKeyDown={(event) => {
               if (event.target !== event.currentTarget) return;
@@ -248,7 +249,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
                 posiciones={borrador ?? distribucion?.posiciones ?? {}} editar={editar} onMover={mover} />
             </div>
           </div>
-          <figcaption className="flex flex-wrap justify-between gap-2 px-4 pb-4 text-xs text-slate-600 md:px-6">
+          <figcaption className="flex shrink-0 flex-wrap justify-between gap-2 px-4 pb-4 text-xs text-slate-600 md:px-6">
             <span>{editar
               ? "Arrastra con el clic izquierdo para mover objetos y con el derecho para girar. Usa la rueda para acercar o alejar."
               : "Selecciona un espacio para reservar. Arrastra el plano para girarlo y usa la rueda para acercar o alejar."}</span>
