@@ -33,6 +33,7 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
   const lienzo = useRef<SVGSVGElement>(null);
   const escena = useRef<SVGGElement>(null);
   const gesto = useRef<{ id: number; x: number; y: number; activo: boolean; clave?: string } | null>(null);
+  const omitirClick = useRef(false);
 
   useEffect(() => {
     const svg = lienzo.current;
@@ -65,6 +66,7 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
       role="group" aria-label="Plano tridimensional del CITT Valparaíso"
       onContextMenu={editar ? (event) => event.preventDefault() : undefined}
       onPointerDown={(event) => {
+        omitirClick.current = false;
         const giroDerecho = editar && event.pointerType === "mouse" && event.button === 2;
         if (!giroDerecho && (event.button !== 0 || (!editar && event.pointerType !== "mouse"))) return;
         const clave = editar && !giroDerecho && event.target instanceof Element
@@ -78,6 +80,7 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
         const dx = event.clientX - inicio.x;
         const dy = event.clientY - inicio.y;
         if (!inicio.activo && Math.hypot(dx, dy) < 5) return;
+        omitirClick.current = true;
         if (!inicio.activo) {
           event.currentTarget.setPointerCapture(event.pointerId);
           if (inicio.clave) onSeleccion(inicio.clave);
@@ -94,6 +97,12 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
       onPointerUp={() => { gesto.current = null; }}
       onPointerCancel={() => { gesto.current = null; }}
       onLostPointerCapture={() => { gesto.current = null; }}
+      onClickCapture={(event) => {
+        if (!omitirClick.current) return;
+        omitirClick.current = false;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
       onPointerLeave={() => { if (!gesto.current?.activo) gesto.current = null; }}
     >
       <defs>

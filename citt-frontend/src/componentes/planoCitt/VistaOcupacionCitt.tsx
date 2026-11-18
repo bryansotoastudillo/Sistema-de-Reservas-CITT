@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarPlus, Maximize, Minimize, Pencil, RefreshCw, RotateCcw, RotateCw, Users, ZoomIn, ZoomOut } from "lucide-react";
 import { isAxiosError } from "axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../../api/axiosConfig";
 import type { ConsultaEspacios, Espacio } from "../../hooks/useOcupacionEspacios";
 import { asociarOcupacion, normalizar } from "./ocupacionPlano";
@@ -34,6 +34,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
   onCambiarEstado?: (espacio: Espacio) => void;
   children?: ReactNode;
 }) {
+  const navigate = useNavigate();
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [angulo, setAngulo] = useState(ANGULO_INICIAL);
   const [inclinacion, setInclinacion] = useState(INCLINACION_INICIAL);
@@ -142,6 +143,15 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
   const estados = Object.fromEntries(zonas.map((zona) => [zona.clave, zona.estado]));
   const zonaSeleccionada = zonas.find((zona) => zona.clave === seleccion);
 
+  function activarEspacio(clave: string) {
+    const espacio = zonas.find(zona => zona.clave === clave)?.espacio;
+    if (editar || !espacio || normalizar(espacio.estado ?? "") !== "disponible") {
+      setSeleccion(clave);
+      return;
+    }
+    navigate("/crear-solicitud", { state: { idEspacio: espacio.id, nombreEspacio: espacio.nombre } });
+  }
+
   return (
     <section ref={panel} aria-label="Ocupación de espacios" className={`overflow-hidden bg-white ${pantallaCompleta
       ? "flex h-full w-full flex-col" : "rounded-2xl border border-slate-200 shadow-sm"}`}>
@@ -242,7 +252,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
               }
             }}>
             <div className={pantallaCompleta ? "h-full" : "min-w-[570px]"}>
-              <PlanoCitt estados={estados} seleccion={seleccion} onSeleccion={setSeleccion}
+              <PlanoCitt estados={estados} seleccion={seleccion} onSeleccion={activarEspacio}
                 nombres={Object.fromEntries(zonas.map(zona => [zona.clave, zona.nombre]))}
                 angulo={angulo} inclinacion={inclinacion} onGirar={girar}
                 zoom={zoom} onZoom={cambiarZoom} ajustarAltura={pantallaCompleta}
