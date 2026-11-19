@@ -46,12 +46,16 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
   const [distribucion, setDistribucion] = useState<Distribucion | null>(null);
   const [borrador, setBorrador] = useState<PosicionesPlano | null>(null);
   const [modoMovimiento, setModoMovimiento] = useState<"libre" | "cuadricula">("libre");
+  const [cuadriculaCm, setCuadriculaCm] = useState(20);
+  const [medioPaso, setMedioPaso] = useState(false);
   const inicioArrastre = useRef<PosicionesPlano | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [intentoPlano, setIntentoPlano] = useState(0);
   const [errorPlano, setErrorPlano] = useState("");
   const editar = borrador !== null;
-  const paso = modoMovimiento === "cuadricula" ? pasoCuadricula : 0;
+  const tamanoCuadricula = pasoCuadricula * cuadriculaCm / 20;
+  const pasoCm = medioPaso ? cuadriculaCm / 2 : cuadriculaCm;
+  const paso = modoMovimiento === "cuadricula" ? tamanoCuadricula / (medioPaso ? 2 : 1) : 0;
 
   useEffect(() => {
     function sincronizarPantalla() {
@@ -204,7 +208,22 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
         <button type="button" disabled={guardando} aria-pressed={modoMovimiento === "cuadricula"}
           onClick={() => setModoMovimiento("cuadricula")}
           className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-[#003b73] aria-pressed:border-[#003b73] aria-pressed:bg-blue-50 disabled:opacity-50">Cuadrícula de ajuste</button>
-        {modoMovimiento === "cuadricula" && <span className="text-xs text-slate-600">Cuadrícula de 20 cm. El centro del objeto se ajusta al tomarlo.</span>}
+        {modoMovimiento === "cuadricula" && <div className="flex w-full flex-wrap items-center gap-x-6 gap-y-3 border-t border-slate-100 pt-3">
+          <label className="flex w-full flex-col gap-2 text-sm text-slate-700 sm:w-64">
+            <span className="flex justify-between gap-3 font-semibold">Tamaño de la cuadrícula <output>{cuadriculaCm} cm</output></span>
+            <input type="range" min={10} max={100} step={5} value={cuadriculaCm}
+              aria-label="Tamaño de la cuadrícula" aria-valuetext={`${cuadriculaCm} centímetros`}
+              disabled={guardando} onChange={event => setCuadriculaCm(Number(event.target.value))}
+              className="h-8 w-full cursor-pointer accent-[#003b73] disabled:opacity-50" />
+            <span className="flex justify-between text-xs text-slate-500"><span>10 cm</span><span>100 cm</span></span>
+          </label>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700">
+            <input type="checkbox" checked={medioPaso} disabled={guardando}
+              onChange={event => setMedioPaso(event.target.checked)} className="size-4 accent-[#003b73]" />
+            Medio paso
+          </label>
+          <p className="text-xs text-slate-600" role="status">Ajuste cada {pasoCm.toLocaleString("es-CL")} cm al tomar o mover el objeto.</p>
+        </div>}
       </div>}
       {errorPantalla && <p role="alert" className="bg-amber-50 px-4 py-3 text-sm text-amber-900">{errorPantalla}</p>}
       {errorPlano && <p role="alert" className="bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -265,6 +284,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
                 zoom={zoom} onZoom={cambiarZoom} ajustarAltura={pantallaCompleta}
                 posiciones={borrador ?? distribucion?.posiciones ?? {}} editar={editar}
                 cuadricula={editar && modoMovimiento === "cuadricula"}
+                tamanoCuadricula={tamanoCuadricula} medioPaso={medioPaso}
                 onIniciarMovimiento={iniciarMovimiento} onMover={arrastrarObjeto} />
             </div>
           </div>

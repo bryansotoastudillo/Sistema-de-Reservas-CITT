@@ -20,12 +20,15 @@ type Props = {
   posiciones: PosicionesPlano;
   editar: boolean;
   cuadricula?: boolean;
+  tamanoCuadricula?: number;
+  medioPaso?: boolean;
   onIniciarMovimiento?: (clave: string) => void;
   onMover: (clave: string, dx: number, dy: number) => void;
 };
 
 export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, inclinacion, onGirar,
-  zoom = 1, onZoom, ajustarAltura = false, posiciones, editar, cuadricula = false, onIniciarMovimiento, onMover }: Props) {
+  zoom = 1, onZoom, ajustarAltura = false, posiciones, editar, cuadricula = false,
+  tamanoCuadricula = pasoCuadricula, medioPaso = false, onIniciarMovimiento, onMover }: Props) {
   const id = useId();
   const clipPiso = `${id}-piso`;
   const sombra = `${id}-sombra`;
@@ -174,10 +177,18 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
       })}
       {editar && cuadricula && <g clipPath={`url(#${clipPiso})`} data-cuadricula-plano="true"
         aria-hidden="true" pointerEvents="none" fill="none" stroke="#205e78" strokeWidth="0.8" opacity="0.6">
-        {Array.from({ length: Math.floor(786 / pasoCuadricula) + 1 }, (_, i) =>
-          <polyline key={`x-${i}`} points={puntos(camara, [[i * pasoCuadricula, 0], [i * pasoCuadricula, 484]], 3)} />)}
-        {Array.from({ length: Math.floor(484 / pasoCuadricula) + 1 }, (_, i) =>
-          <polyline key={`y-${i}`} points={puntos(camara, [[0, i * pasoCuadricula], [786, i * pasoCuadricula]], 3)} />)}
+        {Array.from({ length: Math.floor(786 / tamanoCuadricula) + 1 }, (_, i) =>
+          <polyline key={`x-${i}`} points={puntos(camara, [[i * tamanoCuadricula, 0], [i * tamanoCuadricula, 484]], 3)} />)}
+        {Array.from({ length: Math.floor(484 / tamanoCuadricula) + 1 }, (_, i) =>
+          <polyline key={`y-${i}`} points={puntos(camara, [[0, i * tamanoCuadricula], [786, i * tamanoCuadricula]], 3)} />)}
+        {medioPaso && <g data-medio-paso="true" strokeDasharray="2 4" opacity="0.45">
+          {Array.from({ length: Math.ceil(786 / tamanoCuadricula) }, (_, i) =>
+            <polyline key={`medio-x-${i}`} points={puntos(camara,
+              [[(i + 0.5) * tamanoCuadricula, 0], [(i + 0.5) * tamanoCuadricula, 484]], 3)} />)}
+          {Array.from({ length: Math.ceil(484 / tamanoCuadricula) }, (_, i) =>
+            <polyline key={`medio-y-${i}`} points={puntos(camara,
+              [[0, (i + 0.5) * tamanoCuadricula], [786, (i + 0.5) * tamanoCuadricula]], 3)} />)}
+        </g>}
       </g>}
       {[...objetos.filter(objeto => objeto.muebles.length > 0), ...objetos.filter(objeto => objeto.muebles.length === 0)].map((zona) => {
         const camara = zona.camara;
