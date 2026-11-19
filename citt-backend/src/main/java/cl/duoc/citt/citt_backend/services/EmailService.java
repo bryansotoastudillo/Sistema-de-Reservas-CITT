@@ -124,6 +124,17 @@ public class EmailService {
     }
 
     @Async
+    public void enviarCorreoVencimientoSinRetiro(String destinatario, Long idSolicitud, LocalTime horaFin) {
+        try {
+            enviarCorreo(destinatario, CorreoSolicitud.vencidaSinRetiro(idSolicitud, horaFin));
+            log.info("Notificación de vencimiento sin retiro de solicitud #{} enviada a {}", idSolicitud, destinatario);
+        } catch (Exception e) {
+            log.error("Fallo al enviar vencimiento sin retiro de solicitud #{} a {}: {}",
+                    idSolicitud, destinatario, e.getMessage());
+        }
+    }
+
+    @Async
     public void enviarCorreoRechazo(String destinatario, Long idSolicitud, String motivoRechazo) {
         try {
             enviarCorreo(destinatario, CorreoSolicitud.rechazada(idSolicitud, motivoRechazo));

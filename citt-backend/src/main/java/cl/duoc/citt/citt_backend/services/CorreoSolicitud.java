@@ -59,6 +59,18 @@ final class CorreoSolicitud {
                 datos, "Abrir Reservas CITT");
     }
 
+    static CorreoCitt vencidaSinRetiro(Long idSolicitud, LocalTime horaFin) {
+        Map<String, String> datos = new LinkedHashMap<>();
+        datos.put("Solicitud", "#" + idSolicitud);
+        datos.put("Hora de término", horaFin.format(HORA));
+        return CorreoCitt.crear("Venció el plazo de tu solicitud #" + idSolicitud + " · CITT Duoc UC",
+                Estado.VENCIDA, "Finalizó el horario de tu solicitud",
+                "El horario de tu solicitud aprobada ha terminado y no se registró el retiro de los recursos. "
+                        + "Si utilizaste los recursos, contacta al equipo CITT para regularizar el registro. "
+                        + "Si aún los necesitas, puedes realizar una nueva solicitud.",
+                datos, "Abrir Reservas CITT");
+    }
+
     static CorreoCitt atrasada(LocalDate fecha, LocalTime horaFin) {
         Map<String, String> datos = new LinkedHashMap<>();
         datos.put("Fecha", fecha.format(FECHA));

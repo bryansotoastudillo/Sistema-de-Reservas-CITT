@@ -99,7 +99,7 @@ public class SolicitudSchedulerService {
                     solicitudRepository.save(s);
 
                     s.correosNotificacion().forEach(correo ->
-                            emailService.enviarCorreoRechazo(correo, s.getIdSolicitud(), s.getMotivoRechazo()));
+                            emailService.enviarCorreoVencimientoSinRetiro(correo, s.getIdSolicitud(), s.getHoraFin()));
 
                     log.info("Solicitud #{} RECHAZADA automáticamente (APROBADA sin retiro, hora fin: {})",
                             s.getIdSolicitud(), s.getHoraFin());
