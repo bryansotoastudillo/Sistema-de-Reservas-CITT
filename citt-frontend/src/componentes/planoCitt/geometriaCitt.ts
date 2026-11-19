@@ -269,12 +269,12 @@ export const referenciasCitt = [
   { nombre: "Entrada", base: [[734, 42], [785, 42], [785, 138], [735, 138], [678, 111]] as Punto[], centro: [757, 100] as Punto, altura: 2 },
 ];
 
+const largoSofa = cm(390);
+const anchoCojinSofa = (largoSofa - 2) / 6;
+
 const moduloSofa = (x: number, y: number, ancho: number, fondo: number) =>
   rectangulo(x, y, ancho, fondo).map(([u, v]): Punto =>
-    [621 - v, 344 + u]);
-
-const largoSofa = 137;
-const anchoCojinSofa = 22.5;
+    [621 - v, 481 - largoSofa + u]);
 
 export const mobiliarioComun: Mueble[] = [
   // Respaldo junto al límite con el Maker, con los cojines mirando al Ring de ideas.
