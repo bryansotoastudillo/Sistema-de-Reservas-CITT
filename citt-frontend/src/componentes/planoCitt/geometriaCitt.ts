@@ -68,8 +68,8 @@ function pieza(base: Punto[], altura: number, acabado: Acabado, nivel = 2, opaci
   return { base, altura, nivel, acabado, opacidad };
 }
 
-const mesa = (x: number, y: number, ancho: number, fondo: number, monitor = false, altura = 26): Mueble => ({
-  base: rectangulo(x, y, ancho, fondo), altura, tipo: "mesa", monitor,
+const mesa = (x: number, y: number, ancho: number, fondo: number, monitor = false): Mueble => ({
+  base: rectangulo(x, y, ancho, fondo), altura: 26, tipo: "mesa", monitor,
   acabado: blanco, patas: "#dce0dc",
 });
 
@@ -193,22 +193,16 @@ export const pisoCitt: Punto[] = [
 const unidadesPorCentimetro = 767 / 1247;
 const cm = (centimetros: number) => centimetros * unidadesPorCentimetro;
 
-export const pizarrasCitt: (Omit<Zona, "marcador"> & { marcador?: never })[] = [185, 227, 269].map((y, i) => {
-  const ancho = cm(13.5);
-  const largo = cm(99.5);
-  const x = 162 - ancho / 2;
-  const inicioY = y + 19 - largo / 2;
-  return {
-    clave: `P${i + 1}`,
-    nombre: `Pizarra ${i + 1}`,
-    base: rectangulo(x, inicioY, ancho, largo),
-    muebles: [
-      pieza(rectangulo(x, inicioY + largo * 3 / 38, ancho, largo * 4 / 38), 6, marco),
-      pieza(rectangulo(x, inicioY + largo * 31 / 38, ancho, largo * 4 / 38), 6, marco),
-      pieza(rectangulo(162 - ancho / 8, inicioY, ancho / 4, largo), cm(183), blanco, 5),
-    ],
-  };
-});
+export const pizarrasCitt: (Omit<Zona, "marcador"> & { marcador?: never })[] = [185, 227, 269].map((y, i) => ({
+  clave: `P${i + 1}`,
+  nombre: `Pizarra ${i + 1}`,
+  base: rectangulo(159, y, 6, 38),
+  muebles: [
+    pieza(rectangulo(150, y + 3, 24, 4), 6, marco),
+    pieza(rectangulo(150, y + 31, 24, 4), 6, marco),
+    pieza(rectangulo(159, y, 6, 38), 57, blanco, 5),
+  ],
+}));
 
 function mueblesDeZona(zonaPadre: "MR" | "CW", tipo: "mesa" | "silla", muebles: Mueble[]) {
   const nombreZona = zonaPadre === "MR" ? "Reunión" : "Cowork";
@@ -226,7 +220,7 @@ const gruposCowork = [[310, 110], [211, 212], [355, 212]] as const;
 
 export const mueblesEditables = [
   ...mueblesDeZona("MR", "mesa", [{
-    ...mesa(73.5 - cm(100) / 2, 249 - cm(200) / 2, cm(100), cm(200), false, cm(79)),
+    ...mesa(73.5 - cm(100) / 2, 249 - cm(200) / 2, cm(100), cm(200)),
     acabado: madera, patas: "#d5a322",
   }]),
   ...mueblesDeZona("MR", "silla", [192, 232, 272].flatMap(y => [
@@ -235,7 +229,7 @@ export const mueblesEditables = [
   ...mueblesDeZona("CW", "mesa", gruposCowork.flatMap(([x, y]) =>
     [0, 41, 82].map(dx => mesa(
       x + dx + 19.5 - cm(100) / 2, y + 15.5 - cm(50) / 2,
-      cm(100), cm(50), false, cm(76),
+      cm(100), cm(50),
     )))),
   ...mueblesDeZona("CW", "silla", gruposCowork.flatMap(([x, y]) => [
     asiento(x + 13, y - 20, 17, 17, naranja), asiento(x + 89, y - 20),
