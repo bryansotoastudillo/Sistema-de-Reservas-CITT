@@ -192,6 +192,7 @@ export const pisoCitt: Punto[] = [
 // El largo interior del plano arquitectónico es 1247 cm y ocupa 767 unidades.
 const unidadesPorCentimetro = 767 / 1247;
 const cm = (centimetros: number) => centimetros * unidadesPorCentimetro;
+export const pasoCuadricula = cm(20);
 
 export const pizarrasCitt: (Omit<Zona, "marcador"> & { marcador?: never })[] = [185, 227, 269].map((y, i) => ({
   clave: `P${i + 1}`,

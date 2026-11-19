@@ -8,7 +8,8 @@ import { asociarOcupacion, normalizar } from "./ocupacionPlano";
 import { PlanoCitt } from "./PlanoCitt";
 import { estadosPlano } from "./estadosPlano";
 import type { EstadoPlano } from "./estadosPlano";
-import { girarDesplazamiento, mueblesEditables, objetosEditables, pizarrasCitt, transformarEnPlano } from "./geometriaCitt";
+import { mueblesEditables, objetosEditables, pasoCuadricula, pizarrasCitt } from "./geometriaCitt";
+import { moverObjetoPlano } from "./movimientoPlano";
 import type { PosicionesPlano } from "./geometriaCitt";
 
 const ANGULO_INICIAL = 25;
@@ -44,10 +45,13 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
   const [errorPantalla, setErrorPantalla] = useState("");
   const [distribucion, setDistribucion] = useState<Distribucion | null>(null);
   const [borrador, setBorrador] = useState<PosicionesPlano | null>(null);
+  const [modoMovimiento, setModoMovimiento] = useState<"libre" | "cuadricula">("libre");
+  const inicioArrastre = useRef<PosicionesPlano | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [intentoPlano, setIntentoPlano] = useState(0);
   const [errorPlano, setErrorPlano] = useState("");
   const editar = borrador !== null;
+  const paso = modoMovimiento === "cuadricula" ? pasoCuadricula : 0;
 
   useEffect(() => {
     function sincronizarPantalla() {
@@ -86,31 +90,23 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
   }, [intentoPlano, permitirEdicion]);
 
   function mover(clave: string, dx: number, dy: number, grados = 0) {
-    const objeto = objetosEditables.find((valor) => valor.clave === clave);
-    if (!objeto || guardando) return;
-    const puntos = [...objeto.base, ...objeto.muebles.flatMap((mueble) => mueble.base)];
-    setBorrador((actual) => {
-      if (!actual) return actual;
-      const anterior = actual[clave] ?? { x: 0, y: 0 };
-      const giro = ((anterior.giro ?? 0) + grados + 360) % 360;
-      const siguientes = { ...actual, [clave]: { ...anterior, giro } };
-      const girados = puntos.map(transformarEnPlano(objeto, siguientes));
-      mueblesEditables.filter(mueble => mueble.zonaPadre === clave).forEach(mueble => {
-        girados.push(...mueble.base.map(transformarEnPlano(mueble, siguientes)));
-      });
-      const xs = girados.map(([x]) => x);
-      const ys = girados.map(([, y]) => y);
-      if (Math.max(...xs) - Math.min(...xs) > 767 || Math.max(...ys) - Math.min(...ys) > 484) return actual;
-      const [x, y] = girarDesplazamiento([
-        Math.min(767 - Math.max(...xs), Math.max(-Math.min(...xs), dx)),
-        Math.min(484 - Math.max(...ys), Math.max(-Math.min(...ys), dy)),
-      ], -(objeto.zonaPadre ? actual[objeto.zonaPadre]?.giro ?? 0 : 0));
-      return { ...actual, [clave]: {
-        x: anterior.x + x,
-        y: anterior.y + y,
-        giro,
-      } };
-    });
+    if (guardando) return;
+    setBorrador(actual => actual && moverObjetoPlano(actual, clave,
+      paso ? Math.sign(dx) * paso : dx, paso ? Math.sign(dy) * paso : dy, grados, paso));
+  }
+
+  function iniciarMovimiento(clave: string) {
+    inicioArrastre.current = null;
+    if (!borrador || guardando) return;
+    const inicial = paso ? moverObjetoPlano(borrador, clave, 0, 0, 0, paso) : borrador;
+    inicioArrastre.current = inicial;
+    setSeleccion(clave);
+    setBorrador(inicial);
+  }
+
+  function arrastrarObjeto(clave: string, dx: number, dy: number) {
+    if (!inicioArrastre.current || guardando) return;
+    setBorrador(moverObjetoPlano(inicioArrastre.current, clave, dx, dy, 0, paso));
   }
 
   async function guardarPlano() {
@@ -177,6 +173,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
         </button>
         {permitirEdicion && !editar && distribucion && <button type="button" onClick={() => {
           setBorrador(distribucion.posiciones);
+          setModoMovimiento("libre");
           setErrorPlano("");
         }} className="inline-flex items-center gap-2 rounded-lg bg-[#003b73] px-3 py-2 text-sm font-semibold text-white">
           <Pencil size={15} aria-hidden="true" /> Editar plano
@@ -199,6 +196,16 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
         </button>
         </div>
       </div>
+      {editar && <div role="group" aria-label="Modo de movimiento" className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3 md:px-6">
+        <span className="mr-1 text-sm font-semibold text-slate-700">Movimiento</span>
+        <button type="button" disabled={guardando} aria-pressed={modoMovimiento === "libre"}
+          onClick={() => setModoMovimiento("libre")}
+          className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-[#003b73] aria-pressed:border-[#003b73] aria-pressed:bg-blue-50 disabled:opacity-50">Libre</button>
+        <button type="button" disabled={guardando} aria-pressed={modoMovimiento === "cuadricula"}
+          onClick={() => setModoMovimiento("cuadricula")}
+          className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-[#003b73] aria-pressed:border-[#003b73] aria-pressed:bg-blue-50 disabled:opacity-50">Cuadrícula de ajuste</button>
+        {modoMovimiento === "cuadricula" && <span className="text-xs text-slate-600">Cuadrícula de 20 cm. El centro del objeto se ajusta al tomarlo.</span>}
+      </div>}
       {errorPantalla && <p role="alert" className="bg-amber-50 px-4 py-3 text-sm text-amber-900">{errorPantalla}</p>}
       {errorPlano && <p role="alert" className="bg-amber-50 px-4 py-3 text-sm text-amber-900">
         {errorPlano} {!editar && <button type="button" className="font-semibold underline" onClick={() => {
@@ -256,7 +263,9 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
                 nombres={Object.fromEntries(zonas.map(zona => [zona.clave, zona.nombre]))}
                 angulo={angulo} inclinacion={inclinacion} onGirar={girar}
                 zoom={zoom} onZoom={cambiarZoom} ajustarAltura={pantallaCompleta}
-                posiciones={borrador ?? distribucion?.posiciones ?? {}} editar={editar} onMover={mover} />
+                posiciones={borrador ?? distribucion?.posiciones ?? {}} editar={editar}
+                cuadricula={editar && modoMovimiento === "cuadricula"}
+                onIniciarMovimiento={iniciarMovimiento} onMover={arrastrarObjeto} />
             </div>
           </div>
           <figcaption className="flex shrink-0 flex-wrap justify-between gap-2 px-4 pb-4 text-xs text-slate-600 md:px-6">

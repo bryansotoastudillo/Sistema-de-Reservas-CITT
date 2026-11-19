@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef } from "react";
-import { mobiliarioComun, murosCitt, objetosEditables, pisoCitt, referenciasCitt, rectangulo, transformarEnPlano } from "./geometriaCitt";
+import { mobiliarioComun, murosCitt, objetosEditables, pasoCuadricula, pisoCitt, referenciasCitt, rectangulo, transformarEnPlano } from "./geometriaCitt";
 import type { PosicionesPlano } from "./geometriaCitt";
 import { Mueble3D, Prisma } from "./escenaCitt";
 import { crearCamara, puntos } from "./camaraCitt";
@@ -19,11 +19,13 @@ type Props = {
   ajustarAltura?: boolean;
   posiciones: PosicionesPlano;
   editar: boolean;
+  cuadricula?: boolean;
+  onIniciarMovimiento?: (clave: string) => void;
   onMover: (clave: string, dx: number, dy: number) => void;
 };
 
 export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, inclinacion, onGirar,
-  zoom = 1, onZoom, ajustarAltura = false, posiciones, editar, onMover }: Props) {
+  zoom = 1, onZoom, ajustarAltura = false, posiciones, editar, cuadricula = false, onIniciarMovimiento, onMover }: Props) {
   const id = useId();
   const clipPiso = `${id}-piso`;
   const sombra = `${id}-sombra`;
@@ -32,7 +34,7 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
   const camara = useMemo(() => crearCamara(angulo, inclinacion), [angulo, inclinacion]);
   const lienzo = useRef<SVGSVGElement>(null);
   const escena = useRef<SVGGElement>(null);
-  const gesto = useRef<{ id: number; x: number; y: number; activo: boolean; clave?: string } | null>(null);
+  const gesto = useRef<{ id: number; x: number; y: number; inicioX: number; inicioY: number; activo: boolean; clave?: string } | null>(null);
   const omitirClick = useRef(false);
 
   useEffect(() => {
@@ -72,13 +74,15 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
         const clave = editar && !giroDerecho && event.target instanceof Element
           ? event.target.closest("[data-objeto-plano]")?.getAttribute("data-objeto-plano") ?? undefined : undefined;
         if (editar && !giroDerecho && !clave) return;
-        gesto.current = { id: event.pointerId, x: event.clientX, y: event.clientY, activo: false, clave };
+        if (clave) onIniciarMovimiento?.(clave);
+        gesto.current = { id: event.pointerId, x: event.clientX, y: event.clientY,
+          inicioX: event.clientX, inicioY: event.clientY, activo: false, clave };
       }}
       onPointerMove={(event) => {
         const inicio = gesto.current;
         if (!inicio || inicio.id !== event.pointerId) return;
-        const dx = event.clientX - inicio.x;
-        const dy = event.clientY - inicio.y;
+        const dx = event.clientX - (inicio.clave ? inicio.inicioX : inicio.x);
+        const dy = event.clientY - (inicio.clave ? inicio.inicioY : inicio.y);
         if (!inicio.activo && Math.hypot(dx, dy) < 5) return;
         omitirClick.current = true;
         if (!inicio.activo) {
@@ -168,6 +172,13 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
             borde={zona.clave === seleccion ? "#003b73" : estado.canto} />
         </g>;
       })}
+      {editar && cuadricula && <g clipPath={`url(#${clipPiso})`} data-cuadricula-plano="true"
+        aria-hidden="true" pointerEvents="none" fill="none" stroke="#205e78" strokeWidth="0.8" opacity="0.6">
+        {Array.from({ length: Math.floor(786 / pasoCuadricula) + 1 }, (_, i) =>
+          <polyline key={`x-${i}`} points={puntos(camara, [[i * pasoCuadricula, 0], [i * pasoCuadricula, 484]], 3)} />)}
+        {Array.from({ length: Math.floor(484 / pasoCuadricula) + 1 }, (_, i) =>
+          <polyline key={`y-${i}`} points={puntos(camara, [[0, i * pasoCuadricula], [786, i * pasoCuadricula]], 3)} />)}
+      </g>}
       {[...objetos.filter(objeto => objeto.muebles.length > 0), ...objetos.filter(objeto => objeto.muebles.length === 0)].map((zona) => {
         const camara = zona.camara;
         if (!zona.marcador) return (
