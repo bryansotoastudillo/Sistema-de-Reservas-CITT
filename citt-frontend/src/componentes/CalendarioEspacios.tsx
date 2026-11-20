@@ -3,8 +3,10 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import esLocale from '@fullcalendar/core/locales/es';
 import api from '../api/axiosConfig';
 import { useSeguridad } from '../hooks/useSeguridad';
+import './CalendarioEspacios.css';
 
 interface CalendarioEventoDTO {
   idSolicitud: number;
@@ -16,6 +18,11 @@ interface CalendarioEventoDTO {
   esExclusivo: boolean;
   solicitanteEmail?: string;
   estadoActual?: string;
+}
+
+function claseHora(tiempo?: { milliseconds: number }) {
+  return Math.floor((tiempo?.milliseconds ?? 0) / 3600000) % 2 === 0
+    ? 'citt-hora-clara' : 'citt-hora-sombreada';
 }
 
 export const CalendarioEspacios: React.FC = () => {
@@ -48,19 +55,14 @@ export const CalendarioEspacios: React.FC = () => {
     try {
       const response = await api.get<CalendarioEventoDTO[]>('/solicitudes/calendario');
       
-      // Función para generar un color único (pastel/agradable) basado en el ID de la solicitud
-      const generateColor = (id: number) => {
-        const hue = (id * 137.508) % 360; // Distribución dorada
-        return `hsl(${hue}, 70%, 50%)`;
-      };
-
       const mappedEvents = response.data.map(evento => ({
         id: String(evento.idSolicitud),
         title: `${evento.nombreEspacio} - ${evento.title} ${evento.esExclusivo ? '⭐ (EXCLUSIVO)' : ''}`,
         start: `${evento.date}T${evento.start}`,
         end: `${evento.date}T${evento.end}`,
-        backgroundColor: evento.esExclusivo ? '#ef4444' : generateColor(evento.idSolicitud), // Color único por evento normal
-        borderColor: 'transparent',
+        backgroundColor: `hsl(${evento.esExclusivo ? 0 : (evento.idSolicitud * 137.508) % 360}, 60%, 93%)`,
+        borderColor: `hsl(${evento.esExclusivo ? 0 : (evento.idSolicitud * 137.508) % 360}, 70%, 39%)`,
+        textColor: '#172333',
         extendedProps: {
           exclusivo: evento.esExclusivo,
           solicitante: evento.solicitanteEmail,
@@ -87,7 +89,7 @@ export const CalendarioEspacios: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full bg-white rounded-3xl shadow-sm p-3 sm:p-8 border border-gray-100">
+    <div className="citt-calendario w-full h-full bg-white rounded-2xl shadow-sm p-2 sm:p-5 border border-gray-200">
       
       <div className="calendar-container h-[min(700px,75dvh)] min-h-96 sm:h-[700px] overflow-hidden">
         <FullCalendar
@@ -108,12 +110,30 @@ export const CalendarioEspacios: React.FC = () => {
           }}
           slotMinTime="08:00:00"
           slotMaxTime="22:00:00"
+          slotDuration="00:30:00"
+          slotLabelInterval="01:00:00"
+          slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+          slotLaneClassNames={({ time }) => claseHora(time)}
+          slotLabelClassNames={({ time }) => claseHora(time)}
+          nowIndicator={true}
+          eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
+          displayEventEnd={true}
+          views={{ timeGridDay: {
+            dayHeaders: false,
+            titleFormat: { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
+          } }}
           events={eventos}
           eventClick={handleEventClick}
           height="100%"
-          eventClassNames="cursor-pointer shadow-sm hover:shadow-md transition-shadow rounded-md border-0"
+          eventClassNames="cursor-pointer"
+          eventContent={({ event, timeText }) => <div className="citt-calendario-evento">
+            <strong className="citt-calendario-proposito">{event.extendedProps.proposito}</strong>
+            <span className="citt-calendario-horario">{timeText}</span>
+            <span className="citt-calendario-lugar">{event.extendedProps.nombreEspacio}</span>
+            {event.extendedProps.exclusivo && <span className="citt-calendario-exclusivo">Exclusivo</span>}
+          </div>}
           allDaySlot={false}
-          locale="es"
+          locale={esLocale}
           slotEventOverlap={false}
         />
       </div>
@@ -206,33 +226,6 @@ export const CalendarioEspacios: React.FC = () => {
           </div>
         </div>
       )}
-
-      <style dangerouslySetInnerHTML={{__html: `
-        .fc-theme-standard .fc-scrollgrid { border-color: #f1f5f9; border-radius: 0.5rem; overflow: hidden; border: none; }
-        .fc-theme-standard th { border: none; border-bottom: 1px solid #f1f5f9; padding: 16px 0; background-color: #ffffff; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; color: #64748b; }
-        .fc-theme-standard td { border-color: #f8fafc; }
-        .fc-button-primary { background-color: #ffffff !important; border: 1px solid #e2e8f0 !important; color: #334155 !important; text-transform: capitalize; border-radius: 0.75rem !important; padding: 0.5rem 1.25rem !important; font-weight: 600 !important; font-size: 0.875rem !important; transition: all 0.2s ease !important; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important; }
-        .fc-button-primary:hover { background-color: #f8fafc !important; border-color: #cbd5e1 !important; color: #0f172a !important; }
-        .fc-button-primary:not(:disabled):active, .fc-button-primary:not(:disabled).fc-button-active { background-color: #f1f5f9 !important; border-color: #cbd5e1 !important; color: #0f172a !important; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05) !important; }
-        .fc-toolbar-title { font-size: 1.5rem !important; font-weight: 700 !important; color: #1e293b; letter-spacing: -0.025em; margin: 0 1rem !important; display: inline-block; white-space: nowrap; }
-        .fc-timegrid-slot { height: 4em !important; border-bottom: 1px dashed #f8fafc !important; }
-        .fc-timegrid-axis { border: none !important; color: #94a3b8; font-size: 0.75rem; font-weight: 500; }
-        .fc-event { padding: 4px 6px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); transition: all 0.2s; border: none; }
-        .fc-event:hover { filter: brightness(1.05); transform: translateY(-1px); z-index: 10; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        .fc-v-event .fc-event-main { padding: 4px; }
-        /* ARREGLOS DE LAYOUT (Fuerza flexbox que Tailwind V4 puede romper) */
-        .fc .fc-header-toolbar { display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 1.5rem !important; gap: 1rem; flex-wrap: wrap; }
-        .fc .fc-toolbar-chunk { display: flex !important; align-items: center !important; gap: 0.5rem; }
-        @media (max-width: 639px) {
-          .fc .fc-header-toolbar { gap: .5rem; margin-bottom: .75rem !important; }
-          .fc .fc-toolbar-title { font-size: 1.05rem !important; white-space: normal; margin: 0 !important; }
-          .fc .fc-button { min-height: 44px; }
-        }
-        .fc .fc-button-group { display: inline-flex !important; }
-        .fc .fc-button-group > .fc-button { margin-left: -1px; }
-        .fc .fc-button-group > .fc-button:first-child { margin-left: 0; }
-        .fc .fc-view-harness { min-height: 500px; }
-      `}} />
     </div>
   );
 };
