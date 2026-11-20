@@ -45,7 +45,7 @@ export const CalendarioEspacios: React.FC = () => {
     const pantalla = window.matchMedia("(max-width: 639px)");
     const adaptarVista = () => {
       setPantallaCompacta(pantalla.matches);
-      calendario.current?.getApi().changeView(pantalla.matches ? "timeGridDay" : "timeGridWeek");
+      calendario.current?.getApi().changeView("timeGridDay");
     };
     pantalla.addEventListener("change", adaptarVista);
     return () => pantalla.removeEventListener("change", adaptarVista);
@@ -95,11 +95,11 @@ export const CalendarioEspacios: React.FC = () => {
         <FullCalendar
           ref={calendario}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-          initialView={pantallaCompacta ? "timeGridDay" : "timeGridWeek"}
+          initialView="timeGridDay"
           headerToolbar={pantallaCompacta ? { left: "title", center: "", right: "prev,next today" } : {
             left: 'prev,next today',
             center: 'title',
-            right: 'timeGridWeek,timeGridDay'
+            right: 'timeGridDay,timeGridWeek'
           }}
           buttonText={{
             today: 'Hoy',
