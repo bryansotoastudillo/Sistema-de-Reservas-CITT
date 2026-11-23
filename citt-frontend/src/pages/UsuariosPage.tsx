@@ -4,7 +4,6 @@ import { AppLayout } from '../componentes/AppLayout';
 import { Cpu, Users, UserPlus, LogOut, AlertCircle, CheckCircle, Edit, Trash2, Search, Shield } from 'lucide-react';
 import Boton from '../componentes/Boton';
 import InputForm from '../componentes/InputForm';
-import SessionTimeout from '../componentes/sessionTimeout';
 import Modal from '../componentes/Modal';
 import api from '../api/axiosConfig';
 import { isAxiosError } from 'axios';
@@ -299,7 +298,6 @@ const UsuariosPage = () => {
     <>
 
 
-      <SessionTimeout />
 
       <Modal isOpen={usuarioClave !== null} onClose={() => !enviandoClave && setUsuarioClave(null)}
         titulo="Enviar clave provisoria">

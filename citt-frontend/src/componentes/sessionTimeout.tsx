@@ -19,19 +19,20 @@ const SessionTimeout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const lastActivityTime = useRef<number>(Date.now());
-  const timerIntervalRef = useRef<number | null>(null);
+  const warningOpen = useRef(false);
+  const loggingOut = useRef(false);
   // Si estamos en la página de login, no registramos inactividad ni forzamos cierre
   const isExcludedPage = location.pathname === '/' || location.pathname === '/login';
   const resetActivity = useCallback(() => {
     if (isExcludedPage) return;
     lastActivityTime.current = Date.now();
 
-    // Si el modal de advertencia estaba abierto y el usuario hace algo (ej: click en el botón), lo cerramos
-    if (showModal) {
-      setShowModal(false);
-    }
-  }, [isExcludedPage, showModal]);
+    warningOpen.current = false;
+    setShowModal(false);
+  }, [isExcludedPage]);
   const handleLogout = useCallback(async () => {
+    if (loggingOut.current) return;
+    loggingOut.current = true;
     try {
       await api.post('/auth/logout');
     } catch (error) {
@@ -43,34 +44,37 @@ const SessionTimeout: React.FC = () => {
     }
   }, [navigate]);
   useEffect(() => {
+    warningOpen.current = false;
+    loggingOut.current = false;
+    setShowModal(false);
     if (isExcludedPage) {
-      if (timerIntervalRef.current) {
-        window.clearInterval(timerIntervalRef.current);
-      }
       return;
     }
     // Inicializar el tiempo de actividad al entrar a una página protegida
     lastActivityTime.current = Date.now();
     // Eventos a escuchar para resetear el temporizador
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    events.forEach((event) => window.addEventListener(event, resetActivity));
+    // Con el aviso abierto, solo sus controles confirman que se desea continuar.
+    const registerActivity = () => {
+      if (!warningOpen.current && !loggingOut.current) resetActivity();
+    };
+    events.forEach((event) => window.addEventListener(event, registerActivity));
     // Revisar inactividad cada 10 segundos
-    timerIntervalRef.current = window.setInterval(() => {
+    const timerInterval = window.setInterval(() => {
       const currentTime = Date.now();
       const inactiveDuration = currentTime - lastActivityTime.current;
       if (inactiveDuration >= LOGOUT_TIME) {
         handleLogout();
-      } else if (inactiveDuration >= WARNING_TIME && !showModal) {
+      } else if (inactiveDuration >= WARNING_TIME && !warningOpen.current) {
+        warningOpen.current = true;
         setShowModal(true);
       }
     }, 10000); // cambiar a 1000 si se quiere probar con el tiempo de pruebas de lo contrario SIEMPRE DEJAR EN 10000
     return () => {
-      events.forEach((event) => window.removeEventListener(event, resetActivity));
-      if (timerIntervalRef.current) {
-        window.clearInterval(timerIntervalRef.current);
-      }
+      events.forEach((event) => window.removeEventListener(event, registerActivity));
+      window.clearInterval(timerInterval);
     };
-  }, [isExcludedPage, resetActivity, handleLogout, showModal]);
+  }, [isExcludedPage, resetActivity, handleLogout]);
   return (
     <Modal
       isOpen={showModal}

@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import Boton from '../componentes/Boton';
 import InputForm from '../componentes/InputForm';
-import SessionTimeout from '../componentes/sessionTimeout';
 import Modal from '../componentes/Modal';
 import OpcionRol from '../componentes/OpcionRol';
 import api from '../api/axiosConfig';
@@ -135,7 +134,6 @@ const PerfilPage = () => {
     <>
 
 
-      <SessionTimeout />
 
       <Modal
         isOpen={showRolModal}
