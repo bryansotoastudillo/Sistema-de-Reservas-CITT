@@ -127,6 +127,12 @@ const bordesCabina = [
 ];
 
 // Coordenadas trazadas sobre la planta arquitectónica CITT, noviembre de 2023.
+const curvaStreaming: Punto[] = Array.from({ length: 13 }, (_, i) => {
+  const t = i / 12;
+  return [(1 - t) ** 2 * 639 + 2 * (1 - t) * t * 620 + t ** 2 * 605,
+    (1 - t) ** 2 * 104 + 2 * (1 - t) * t * 118 + t ** 2 * 100];
+});
+
 export const zonasCitt: Zona[] = [
   cubiculo(1, 39, 4),
   cubiculo(2, 128, 4),
@@ -156,20 +162,27 @@ export const zonasCitt: Zona[] = [
   },
   {
     clave: "ST", nombre: "Sala Streaming",
-    base: [[520, 0], [734, 0], [734, 34], [632, 111], [620, 118], [610, 115]],
+    base: [[520, 0], [734, 0], [734, 34], ...curvaStreaming],
     marcador: [633, 59],
     alturaMarcador: 82,
     muebles: [
       mesa(572, 24, 22, 35, true), asiento(628, 34, 28, 25, tapiz),
-      pieza([[521, 1], [527, 1], [624, 113], [618, 117]], 73, madera),
-      ...Array.from({ length: 17 }, (_, i) => {
+      pieza([[521, 1], [527, 1], [608, 98], [603, 102]], 73, madera),
+      ...curvaStreaming.slice(1).map((b, i) => {
+        const a = curvaStreaming[i];
+        const largo = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        const dx = -(b[1] - a[1]) / largo * 4;
+        const dy = (b[0] - a[0]) / largo * 4;
+        return pieza([a, b, [b[0] + dx, b[1] + dy], [a[0] + dx, a[1] + dy]], 73, madera);
+      }),
+      ...Array.from({ length: 14 }, (_, i) => {
         const x = 525 + i * 5.5;
         const y = i * 6.45;
         return pieza([[x, y], [x + 1.5, y], [x + 5.5, y + 5.2], [x + 4, y + 5.2]], 73,
           ["#906044", "#7c5037", "#805237", "#906044"]);
       }),
       pieza([[571, 52], [578, 60], [581, 57], [574, 49]], 67, ["#d73438", "#aa1726", "#991627", "#8b2330"], 59),
-      pieza([[621, 113], [732, 29], [735, 34], [623, 118]], 32,
+      pieza([[637, 101], [732, 29], [735, 34], [639, 104]], 32,
         ["#89a570", "#496b49", "#5d814f", "#4b6c49"]),
     ],
   },
@@ -254,7 +267,7 @@ export function objetosDelPlano(posiciones: PosicionesPlano) {
   return todos.map(objeto => {
     const p = posiciones[objeto.clave];
     const mueble = objeto.muebles[0];
-    if (!p || !mueble?.tipo) return objeto;
+    if (!p || objeto.marcador || !mueble?.tipo) return objeto;
     const cx = objeto.base.reduce((s, punto) => s + punto[0], 0) / objeto.base.length;
     const cy = objeto.base.reduce((s, punto) => s + punto[1], 0) / objeto.base.length;
     const ancho = p.ancho == null ? objeto.base[1][0] - objeto.base[0][0] : cm(p.ancho);

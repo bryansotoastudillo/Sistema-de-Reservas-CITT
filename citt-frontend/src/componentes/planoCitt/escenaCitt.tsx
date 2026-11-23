@@ -119,6 +119,22 @@ export function Mueble3D({ camara, mueble }: { camara: Camara; mueble: Mueble })
   }
 
   const esMesa = mueble.tipo === "mesa" || mueble.tipo === "mesaRedonda";
+  if (mueble.tipo === "mesaRedonda") {
+    const cx = (x + finX) / 2;
+    const cy = (y + finY) / 2;
+    const radio = Math.min(ancho, fondo) / 2;
+    const circulo = (r: number) => Array.from({ length: 32 }, (_, i): Punto =>
+      [cx + r * Math.cos(i * Math.PI / 16), cy + r * Math.sin(i * Math.PI / 16)]);
+    return <g data-mesa-pedestal="true">
+      <polygon points={puntos(camara, mueble.base, 1)} fill="#192e3c" opacity=".15" />
+      <Prisma camara={camara} base={circulo(radio * .55)} altura={4} nivel={1}
+        fondo="#687278" canto="#3e4c55" borde="#53636a" />
+      <Prisma camara={camara} base={circulo(radio * .12)} altura={alto - 3} nivel={4}
+        fondo="#687278" canto="#3e4c55" borde="#53636a" />
+      <Prisma camara={camara} base={mueble.base} altura={alto} nivel={alto - 4}
+        fondo={superficie} canto={frente} cantoLateral={lateral} borde={borde} />
+    </g>;
+  }
   const patas = [x + 3, finX - 7].flatMap((px) => [y + 3, finY - 7].map((py) => rectangulo(px, py, 4, 4)));
   return (
     <g>
