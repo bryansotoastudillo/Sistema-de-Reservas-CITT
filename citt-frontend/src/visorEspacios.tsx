@@ -36,7 +36,7 @@ function VisorEspacios() {
     return () => consulta.abort();
   }, [intento]);
 
-  const zonas = asociarOcupacion(datos?.espacios ?? []);
+  const zonas = asociarOcupacion(datos?.espacios ?? []).filter(zona => !datos?.posiciones[zona.clave]?.oculto);
   const zona = zonas.find(valor => valor.clave === seleccion);
   return <main className="mx-auto max-w-7xl p-3 text-slate-800 sm:p-5">
     <header className="mb-3 flex flex-wrap items-center justify-between gap-3">

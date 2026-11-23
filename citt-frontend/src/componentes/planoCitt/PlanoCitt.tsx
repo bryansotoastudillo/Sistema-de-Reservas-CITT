@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef } from "react";
-import { mobiliarioComun, murosCitt, objetosEditables, pasoCuadricula, pisoCitt, referenciasCitt, rectangulo, transformarEnPlano } from "./geometriaCitt";
+import { mobiliarioComun, murosCitt, objetosDelPlano, pasoCuadricula, pisoCitt, referenciasCitt, rectangulo, transformarEnPlano } from "./geometriaCitt";
 import type { PosicionesPlano } from "./geometriaCitt";
 import { Mueble3D, Prisma } from "./escenaCitt";
 import { crearCamara, puntos } from "./camaraCitt";
@@ -53,7 +53,8 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
     return () => svg.removeEventListener("wheel", usarRueda);
   }, [onZoom]);
 
-  const objetos = objetosEditables.map((objeto) => {
+  const objetos = objetosDelPlano(posiciones).filter(objeto => !posiciones[objeto.clave]?.oculto &&
+    (!objeto.zonaPadre || !posiciones[objeto.zonaPadre]?.oculto)).map((objeto) => {
     const mover = transformarEnPlano(objeto, posiciones);
     return {
       ...objeto,
@@ -101,7 +102,13 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
           onMover(inicio.clave, x, y);
         } else onGirar(dx * 0.45, -dy * 0.3);
       }}
-      onPointerUp={() => { gesto.current = null; }}
+      onPointerUp={(event) => {
+        if (editar && event.button === 2 && !gesto.current?.activo && event.target instanceof Element) {
+          const clave = event.target.closest("[data-objeto-plano]")?.getAttribute("data-objeto-plano");
+          if (clave) onSeleccion(clave);
+        }
+        gesto.current = null;
+      }}
       onPointerCancel={() => { gesto.current = null; }}
       onLostPointerCapture={() => { gesto.current = null; }}
       onClickCapture={(event) => {

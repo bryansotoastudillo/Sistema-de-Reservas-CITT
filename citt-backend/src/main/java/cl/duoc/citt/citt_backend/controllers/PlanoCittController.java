@@ -31,7 +31,13 @@ public class PlanoCittController {
     private final ObjectMapper json;
     private final EspacioService espacios;
 
-    public record Posicion(Double x, Double y, Double giro) {}
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    public record Posicion(Double x, Double y, Double giro, Boolean oculto, String tipo, String color,
+                           Double ancho, Double fondo, Double altura) {
+        public Posicion(Double x, Double y, Double giro) {
+            this(x, y, giro, null, null, null, null, null, null);
+        }
+    }
     public record Distribucion(long revision, Map<String, Posicion> posiciones) {}
     public record EspacioVisor(Long id, String nombre, String estado, Boolean enUsoAhora, String clavePlano) {}
     public record VistaPlano(long revision, Map<String, Posicion> posiciones, List<EspacioVisor> espacios,
@@ -63,7 +69,7 @@ public class PlanoCittController {
     @PreAuthorize("hasAnyRole('COORDINADOR', 'DIRECTOR')")
     public ResponseEntity<Distribucion> guardar(@RequestBody Distribucion distribucion) throws JsonProcessingException {
         var posiciones = distribucion.posiciones();
-        if (distribucion.revision() < 0 || distribucion.revision() == Long.MAX_VALUE || posiciones == null
+        if (distribucion.revision() < 0 || distribucion.revision() == Long.MAX_VALUE || posiciones == null || posiciones.size() > 250
                 || posiciones.entrySet().stream().anyMatch(entrada -> !posicionValida(entrada.getKey(), entrada.getValue()))) {
             throw new ReglaNegocioException("Distribución del plano inválida");
         }
@@ -92,12 +98,22 @@ public class PlanoCittController {
 
     private static boolean posicionValida(String clave, Posicion posicion) {
         if (posicion == null) return false;
-        boolean mueble = CLAVE_MUEBLE.matcher(clave).matches();
-        return (mueble || CLAVES.contains(clave))
+        boolean extra = clave.matches("extra-[a-f0-9-]{36}");
+        boolean mueble = CLAVE_MUEBLE.matcher(clave).matches() || extra;
+        boolean propiedades = (posicion.color() == null || mueble && posicion.color().matches("#[a-fA-F0-9]{6}"))
+                && (posicion.tipo() == null ? !extra : extra && Set.of("mesa", "silla", "redonda").contains(posicion.tipo()))
+                && dimensionValida(posicion.ancho(), mueble, 400)
+                && dimensionValida(posicion.fondo(), mueble, 400)
+                && dimensionValida(posicion.altura(), mueble, 250);
+        return propiedades && (mueble || CLAVES.contains(clave))
                 && valida(posicion.x(), mueble ? LIMITE_LOCAL : 786)
                 && valida(posicion.y(), mueble ? LIMITE_LOCAL : 484)
                 && (posicion.giro() == null || Double.isFinite(posicion.giro())
                         && posicion.giro() >= 0 && posicion.giro() < 360);
+    }
+
+    private static boolean dimensionValida(Double valor, boolean mueble, int maximo) {
+        return valor == null || mueble && Double.isFinite(valor) && valor >= 10 && valor <= maximo;
     }
 
     private static ResponseEntity<Distribucion> respuesta(Distribucion distribucion) {

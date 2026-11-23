@@ -1,16 +1,17 @@
-import { girarDesplazamiento, mueblesEditables, objetosEditables, transformarEnPlano } from "./geometriaCitt";
+import { girarDesplazamiento, objetosDelPlano, transformarEnPlano } from "./geometriaCitt";
 import type { PosicionesPlano, Punto } from "./geometriaCitt";
 
 export function moverObjetoPlano(actual: PosicionesPlano, clave: string, dx: number, dy: number,
   grados = 0, paso = 0): PosicionesPlano {
-  const objeto = objetosEditables.find(valor => valor.clave === clave);
+  const objetos = objetosDelPlano(actual);
+  const objeto = objetos.find(valor => valor.clave === clave);
   if (!objeto) return actual;
   const anterior = actual[clave] ?? { x: 0, y: 0 };
   const giro = ((anterior.giro ?? 0) + grados + 360) % 360;
   const siguientes = { ...actual, [clave]: { ...anterior, giro } };
   const transformar = transformarEnPlano(objeto, siguientes);
   const puntos = [...objeto.base, ...objeto.muebles.flatMap(mueble => mueble.base)].map(transformar);
-  mueblesEditables.filter(mueble => mueble.zonaPadre === clave).forEach(mueble => {
+  objetos.filter(mueble => mueble.zonaPadre === clave && !actual[mueble.clave]?.oculto).forEach(mueble => {
     puntos.push(...mueble.base.map(transformarEnPlano(mueble, siguientes)));
   });
   const xs = puntos.map(([x]) => x);
@@ -40,5 +41,5 @@ export function moverObjetoPlano(actual: PosicionesPlano, clave: string, dx: num
   const [x, y] = girarDesplazamiento([movimientoX, movimientoY],
     -(objeto.zonaPadre ? actual[objeto.zonaPadre]?.giro ?? 0 : 0));
   if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9 && giro === (anterior.giro ?? 0)) return actual;
-  return { ...actual, [clave]: { x: anterior.x + x, y: anterior.y + y, giro } };
+  return { ...actual, [clave]: { ...anterior, x: anterior.x + x, y: anterior.y + y, giro } };
 }

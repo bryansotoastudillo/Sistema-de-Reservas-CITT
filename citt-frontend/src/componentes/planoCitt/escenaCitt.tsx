@@ -39,7 +39,11 @@ function SillaReunion3D({ camara, mueble }: { camara: Camara; mueble: Mueble }) 
   const patas = [-1, 1].flatMap(lado => [-1, 1].map(fondo => [
     vertice(0, 0, 12), vertice(lado * .77, fondo * .77, 6), vertice(lado * .8, fondo * .8, 3),
   ]));
-  const tela = (tono: number) => `rgb(${tono} ${tono + 4} ${tono + 6})`;
+  const tela = (tono: number) => {
+    if (!mueble.acabado) return `rgb(${tono} ${tono + 4} ${tono + 6})`;
+    const color = mueble.acabado[0];
+    return `rgb(${[1, 3, 5].map(i => Math.min(255, Math.round(parseInt(color.slice(i, i + 2), 16) * tono / 177))).join(" ")})`;
+  };
   const contorno = Array.from({ length: 24 }, (_, i) => i * Math.PI / 12);
   const cojin = (angulo: number, escala: number, altura: number) =>
     vertice(Math.sin(angulo) * escala, Math.cos(angulo) * escala * .91 - .09, altura);
@@ -96,8 +100,10 @@ function SillaReunion3D({ camara, mueble }: { camara: Camara; mueble: Mueble }) 
 
 export function Mueble3D({ camara, mueble }: { camara: Camara; mueble: Mueble }) {
   if (mueble.tipo === "sillaReunion") return <SillaReunion3D camara={camara} mueble={mueble} />;
-  const [x, y] = mueble.base[0];
-  const [finX, finY] = mueble.base[2];
+  const x = Math.min(...mueble.base.map(p => p[0]));
+  const y = Math.min(...mueble.base.map(p => p[1]));
+  const finX = Math.max(...mueble.base.map(p => p[0]));
+  const finY = Math.max(...mueble.base.map(p => p[1]));
   const ancho = finX - x;
   const fondo = finY - y;
   const alto = mueble.altura;
@@ -112,7 +118,7 @@ export function Mueble3D({ camara, mueble }: { camara: Camara; mueble: Mueble })
     );
   }
 
-  const esMesa = mueble.tipo === "mesa";
+  const esMesa = mueble.tipo === "mesa" || mueble.tipo === "mesaRedonda";
   const patas = [x + 3, finX - 7].flatMap((px) => [y + 3, finY - 7].map((py) => rectangulo(px, py, 4, 4)));
   return (
     <g>
@@ -142,7 +148,9 @@ export function Mueble3D({ camara, mueble }: { camara: Camara; mueble: Mueble })
         </>
       ) : (
         <Prisma camara={camara} base={rectangulo(x, y, ancho, 4)} altura={alto + 9} nivel={alto}
-          fondo="#b1b4b2" canto="#737b7d" cantoLateral="#626e71" borde="#687375" />
+          fondo={mueble.colorPersonalizado ? superficie : "#b1b4b2"}
+          canto={mueble.colorPersonalizado ? frente : "#737b7d"}
+          cantoLateral={mueble.colorPersonalizado ? lateral : "#626e71"} borde="#687375" />
       )}
     </g>
   );

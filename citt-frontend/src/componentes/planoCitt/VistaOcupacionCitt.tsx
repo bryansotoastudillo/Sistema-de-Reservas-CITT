@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarPlus, Maximize, Minimize, Pencil, RefreshCw, RotateCcw, RotateCw, Users, ZoomIn, ZoomOut } from "lucide-react";
+import { Eye, EyeOff, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarPlus, Maximize, Minimize, Pencil, RefreshCw, RotateCcw, RotateCw, Users, ZoomIn, ZoomOut } from "lucide-react";
 import { isAxiosError } from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../../api/axiosConfig";
@@ -8,9 +8,10 @@ import { asociarOcupacion, normalizar } from "./ocupacionPlano";
 import { PlanoCitt } from "./PlanoCitt";
 import { estadosPlano } from "./estadosPlano";
 import type { EstadoPlano } from "./estadosPlano";
-import { mueblesEditables, objetosEditables, pasoCuadricula, pizarrasCitt } from "./geometriaCitt";
+import { objetosDelPlano, pasoCuadricula } from "./geometriaCitt";
+import { EditorMuebles } from "./EditorMuebles";
 import { moverObjetoPlano } from "./movimientoPlano";
-import type { PosicionesPlano } from "./geometriaCitt";
+import type { PosicionPlano, PosicionesPlano } from "./geometriaCitt";
 
 const ANGULO_INICIAL = 25;
 const INCLINACION_INICIAL = 44;
@@ -53,6 +54,8 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
   const [intentoPlano, setIntentoPlano] = useState(0);
   const [errorPlano, setErrorPlano] = useState("");
   const editar = borrador !== null;
+  const posiciones = borrador ?? distribucion?.posiciones ?? {};
+  const objetosEditables = objetosDelPlano(posiciones);
   const tamanoCuadricula = pasoCuadricula * cuadriculaCm / 20;
   const pasoCm = medioPaso ? cuadriculaCm / 2 : cuadriculaCm;
   const paso = modoMovimiento === "cuadricula" ? tamanoCuadricula / (medioPaso ? 2 : 1) : 0;
@@ -113,6 +116,27 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
     setBorrador(moverObjetoPlano(inicioArrastre.current, clave, dx, dy, 0, paso));
   }
 
+  function cambiarObjeto(clave: string, propiedades: Partial<PosicionPlano>) {
+    if (guardando) return;
+    setBorrador(actual => {
+      if (!actual) return actual;
+      const siguientes = { ...actual, [clave]: { ...(actual[clave] ?? { x: 0, y: 0 }), ...propiedades } };
+      return moverObjetoPlano(siguientes, clave, 0, 0);
+    });
+  }
+
+  function eliminarObjeto(clave: string) {
+    if (guardando) return;
+    setBorrador(actual => {
+      if (!actual) return actual;
+      if (!clave.startsWith("extra-")) return { ...actual, [clave]: { ...(actual[clave] ?? { x: 0, y: 0 }), oculto: true } };
+      const siguientes = { ...actual };
+      delete siguientes[clave];
+      return siguientes;
+    });
+    setSeleccion(null);
+  }
+
   async function guardarPlano() {
     if (!distribucion || !borrador || guardando) return;
     setGuardando(true);
@@ -158,7 +182,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4 md:px-6">
         <ul aria-label="Leyenda de ocupación" className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {(Object.keys(estadosPlano) as EstadoPlano[]).map((clave) => {
-            const cantidad = zonas.filter((zona) => zona.estado === clave).length;
+            const cantidad = zonas.filter((zona) => zona.estado === clave && !posiciones[zona.clave]?.oculto).length;
             if (clave === "sinDatos" && cantidad === 0) return null;
             const estado = estadosPlano[clave];
             return (
@@ -299,13 +323,13 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
           ? "lg:overflow-y-auto lg:border-l lg:border-t-0" : ""}`} aria-label="Espacios del plano">
           <h2 className="mb-2 px-2 text-sm font-bold text-slate-800">Espacios del CITT</h2>
           <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 xl:grid-cols-1">
-            {zonas.map((zona) => {
+            {zonas.filter(zona => editar || !posiciones[zona.clave]?.oculto).map((zona) => {
               const estado = estadosPlano[zona.estado];
               const activa = zona.clave === seleccion;
               return (
-                <li key={zona.clave}>
+                <li key={zona.clave} className="flex items-center gap-1">
                   <button type="button" onClick={() => setSeleccion(zona.clave)} aria-pressed={activa}
-                    className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left ${activa ? "bg-blue-50 ring-1 ring-blue-200" : "hover:bg-slate-50"}`}>
+                    className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-1.5 text-left ${activa ? "bg-blue-50 ring-1 ring-blue-200" : "hover:bg-slate-50"}`}>
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
                       style={{ background: estado.color }} aria-hidden="true">{zona.clave}</span>
                     <span className="min-w-0">
@@ -313,26 +337,19 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
                       <span className="block text-xs" style={{ color: estado.color }}>{estado.texto}</span>
                     </span>
                   </button>
+                  {editar && <button type="button" disabled={guardando}
+                    aria-label={(posiciones[zona.clave]?.oculto ? "Mostrar " : "Ocultar ") + zona.nombre}
+                    onClick={() => cambiarObjeto(zona.clave, { oculto: !posiciones[zona.clave]?.oculto })}
+                    className="rounded p-2 text-slate-600 hover:bg-slate-100">
+                    {posiciones[zona.clave]?.oculto ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>}
                 </li>
               );
             })}
           </ul>
           {editar && <>
-            <ul aria-label="Pizarras" className="mt-3 flex flex-wrap gap-2">
-              {pizarrasCitt.map(pizarra => <li key={pizarra.clave}>
-                <button type="button" onClick={() => setSeleccion(pizarra.clave)} aria-pressed={seleccion === pizarra.clave}
-                  className="rounded-lg border border-slate-300 px-2 py-1 text-sm aria-pressed:bg-blue-100">{pizarra.nombre}</button>
-              </li>)}
-            </ul>
-            <label className="mt-3 block text-sm font-semibold text-slate-800">
-              Mobiliario
-              <select aria-label="Seleccionar mesa o silla" className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-normal"
-                value={mueblesEditables.some(mueble => mueble.clave === seleccion) ? seleccion ?? "" : ""}
-                onChange={event => setSeleccion(event.target.value || null)}>
-                <option value="">Seleccionar mesa o silla</option>
-                {mueblesEditables.map(mueble => <option key={mueble.clave} value={mueble.clave}>{mueble.nombre}</option>)}
-              </select>
-            </label>
+            <EditorMuebles posiciones={posiciones} seleccion={seleccion} seleccionar={setSeleccion}
+              cambiar={cambiarObjeto} eliminar={eliminarObjeto} bloqueado={guardando} />
             {seleccion && <div role="group" aria-label={`Mover ${objetosEditables.find(objeto => objeto.clave === seleccion)?.nombre}`}
               className="mt-3 flex flex-wrap gap-2">
               {movimientos.map(({ nombre, icono: Icono, x, y }) => (

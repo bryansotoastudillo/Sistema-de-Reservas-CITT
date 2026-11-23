@@ -1,6 +1,8 @@
 export type Punto = readonly [number, number];
 
-export type PosicionPlano = { x: number; y: number; giro?: number | null };
+export type PosicionPlano = { x: number; y: number; giro?: number | null;
+  oculto?: boolean; tipo?: "mesa" | "silla" | "redonda"; color?: string;
+  ancho?: number; fondo?: number; altura?: number };
 export type PosicionesPlano = Record<string, PosicionPlano>;
 
 export function girarDesplazamiento([x, y]: Punto, giro: number): Punto {
@@ -31,11 +33,12 @@ export type Acabado = readonly [superficie: string, frente: string, lateral: str
 export type Mueble = {
   base: Punto[];
   altura: number;
-  tipo?: "mesa" | "asiento" | "sillaReunion";
+  tipo?: "mesa" | "mesaRedonda" | "asiento" | "sillaReunion";
   haciaIzquierda?: boolean;
   monitor?: boolean;
   nivel?: number;
   acabado?: Acabado;
+  colorPersonalizado?: boolean;
   opacidad?: number;
   patas?: string;
 };
@@ -241,6 +244,30 @@ export const mueblesEditables = [
 export const objetosEditables: (ObjetoPlano & { marcador?: Punto; alturaMarcador?: number })[] = [
   ...zonasCitt, ...pizarrasCitt, ...mueblesEditables,
 ];
+
+export function objetosDelPlano(posiciones: PosicionesPlano) {
+  const extras: ObjetoPlano[] = Object.entries(posiciones).filter(([clave, p]) => clave.startsWith("extra-") && p.tipo)
+    .map(([clave, p]) => ({ clave, nombre: p.tipo === "silla" ? "Silla adicional" : p.tipo === "redonda" ? "Mesa redonda" : "Mesa adicional",
+      base: rectangulo(360, 220, 40, 30), muebles: [{ ...mesa(360, 220, 40, 30),
+        tipo: p.tipo === "silla" ? "asiento" : p.tipo === "redonda" ? "mesaRedonda" : "mesa" }] }));
+  const todos: typeof objetosEditables = [...objetosEditables, ...extras];
+  return todos.map(objeto => {
+    const p = posiciones[objeto.clave];
+    const mueble = objeto.muebles[0];
+    if (!p || !mueble?.tipo) return objeto;
+    const cx = objeto.base.reduce((s, punto) => s + punto[0], 0) / objeto.base.length;
+    const cy = objeto.base.reduce((s, punto) => s + punto[1], 0) / objeto.base.length;
+    const ancho = p.ancho == null ? objeto.base[1][0] - objeto.base[0][0] : cm(p.ancho);
+    const fondo = p.fondo == null ? objeto.base[2][1] - objeto.base[1][1] : cm(p.fondo);
+    const base = rectangulo(cx - ancho / 2, cy - fondo / 2, ancho, fondo);
+    return { ...objeto, base, muebles: objeto.muebles.map(m => {
+      const acabado: Acabado | undefined = p.color ? [p.color, p.color, p.color, p.color] : m.acabado;
+      const planta = m.tipo === "mesaRedonda" ? Array.from({ length: 32 }, (_, i): Punto =>
+        [cx + ancho / 2 * Math.cos(i * Math.PI / 16), cy + fondo / 2 * Math.sin(i * Math.PI / 16)]) : base;
+      return { ...m, base: planta, acabado, colorPersonalizado: !!p.color, altura: p.altura == null ? m.altura : cm(p.altura) };
+    }) };
+  });
+}
 
 export function transformarEnPlano(objeto: ObjetoPlano, posiciones: PosicionesPlano) {
   const mover = transformarObjeto(objeto.base, posiciones[objeto.clave] ?? { x: 0, y: 0 });
