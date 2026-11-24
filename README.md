@@ -1,5 +1,9 @@
 # Sistema de Gestión de Reservas y Préstamos CITT
 
+Los asuntos, títulos, mensajes, etiquetas y botones de los correos se editan en
+[`citt-backend/src/main/resources/correos/mensajes.json`](citt-backend/src/main/resources/correos/mensajes.json).
+Consulta la [guía de edición y publicación de correos](Documentacion/CORREOS.md).
+
 ## Descripción del Proyecto
 
 ### El Problema

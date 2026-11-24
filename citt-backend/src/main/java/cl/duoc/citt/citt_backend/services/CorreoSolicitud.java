@@ -27,70 +27,53 @@ final class CorreoSolicitud {
 
     static CorreoCitt pendiente(SolicitudResponseDTO solicitud) {
         Map<String, String> datos = new LinkedHashMap<>();
-        datos.put("Solicitante", solicitud.getEmailUsuario());
+        datos.put(etiqueta("solicitante"), solicitud.getEmailUsuario());
         datos.putAll(datosReserva(solicitud));
-        return CorreoCitt.crear("Nueva solicitud #" + solicitud.getIdSolicitud() + " pendiente de revisión - CITT",
-                Estado.PENDIENTE, "Nueva solicitud de reserva",
-                "Se registró una nueva solicitud de espacio o artículos. Ingresa al sistema para revisarla.",
-                datos, "Revisar en Reservas CITT");
+        return CorreoCitt.desdeCatalogo("solicitud.pendiente", Estado.PENDIENTE, variables(solicitud), datos);
     }
 
     static CorreoCitt recibida(SolicitudResponseDTO solicitud) {
-        return CorreoCitt.crear("Solicitud #" + solicitud.getIdSolicitud() + " recibida - CITT Duoc UC",
-                Estado.PENDIENTE, "Recibimos tu solicitud",
-                "El equipo CITT registró esta solicitud a tu nombre. Te avisaremos por correo cuando la revise.",
-                datosReserva(solicitud), "Abrir Reservas CITT");
+        return CorreoCitt.desdeCatalogo("solicitud.recibida", Estado.PENDIENTE, variables(solicitud), datosReserva(solicitud));
     }
 
     static CorreoCitt aprobada(SolicitudResponseDTO solicitud) {
-        return CorreoCitt.crear("Reserva #" + solicitud.getIdSolicitud() + " confirmada - CITT Duoc UC",
-                Estado.CONFIRMADA, "Tu reserva está confirmada",
-                "Preséntate a la hora indicada para usar el espacio o retirar los artículos en el mesón del CITT.",
-                datosReserva(solicitud), "Agregar a Google Calendar", enlaceCalendario(solicitud));
+        return CorreoCitt.desdeCatalogo("solicitud.aprobada", Estado.CONFIRMADA, variables(solicitud),
+                datosReserva(solicitud), enlaceCalendario(solicitud));
     }
 
     static CorreoCitt rechazada(Long idSolicitud, String motivo) {
         Map<String, String> datos = new LinkedHashMap<>();
-        datos.put("Solicitud", "#" + idSolicitud);
-        datos.put("Motivo", motivo == null || motivo.isBlank() ? "No se especificó un motivo." : motivo);
-        return CorreoCitt.crear("Solicitud #" + idSolicitud + " rechazada - CITT Duoc UC",
-                Estado.RECHAZADA, "Tu solicitud fue rechazada",
-                "Si tienes dudas sobre esta decisión, contacta al equipo o acércate al CITT.",
-                datos, "Abrir Reservas CITT");
+        datos.put(etiqueta("solicitud"), "#" + idSolicitud);
+        datos.put(etiqueta("motivo"), motivo == null || motivo.isBlank() ? CatalogoCorreos.texto("motivoNoEspecificado") : motivo);
+        return CorreoCitt.desdeCatalogo("solicitud.rechazada", Estado.RECHAZADA,
+                Map.of("idSolicitud", idSolicitud.toString()), datos);
     }
 
     static CorreoCitt vencidaSinRetiro(Long idSolicitud, LocalTime horaFin) {
         Map<String, String> datos = new LinkedHashMap<>();
-        datos.put("Solicitud", "#" + idSolicitud);
-        datos.put("Hora de término", horaFin.format(HORA));
-        return CorreoCitt.crear("Venció el plazo de tu solicitud #" + idSolicitud + " · CITT Duoc UC",
-                Estado.VENCIDA, "Finalizó el horario de tu solicitud",
-                "El horario de tu solicitud aprobada ha terminado y no se registró el retiro de los recursos. "
-                        + "Si utilizaste los recursos, contacta al equipo CITT para regularizar el registro. "
-                        + "Si aún los necesitas, puedes realizar una nueva solicitud.",
-                datos, "Abrir Reservas CITT");
+        datos.put(etiqueta("solicitud"), "#" + idSolicitud);
+        datos.put(etiqueta("horaTermino"), horaFin.format(HORA));
+        return CorreoCitt.desdeCatalogo("solicitud.vencidaSinRetiro", Estado.VENCIDA,
+                Map.of("idSolicitud", idSolicitud.toString()), datos);
     }
 
     static CorreoCitt atrasada(LocalDate fecha, LocalTime horaFin) {
         Map<String, String> datos = new LinkedHashMap<>();
-        datos.put("Fecha", fecha.format(FECHA));
-        datos.put("Hora límite", horaFin.format(HORA) + " (Chile continental)");
-        return CorreoCitt.crear("Aviso de devolución pendiente - CITT Duoc UC",
-                Estado.ATRASADA, "Se superó el horario de devolución",
-                "Acércate al CITT lo antes posible para devolver los recursos de tu reserva.",
-                datos, "Abrir Reservas CITT");
+        datos.put(etiqueta("fecha"), fecha.format(FECHA));
+        datos.put(etiqueta("horaLimite"), CatalogoCorreos.texto("horaLimite", Map.of("horaFin", horaFin.format(HORA))));
+        return CorreoCitt.desdeCatalogo("solicitud.atrasada", Estado.ATRASADA, Map.of(), datos);
     }
 
     private static Map<String, String> datosReserva(SolicitudResponseDTO solicitud) {
         Map<String, String> datos = new LinkedHashMap<>();
-        datos.put("Solicitud", "#" + solicitud.getIdSolicitud());
-        datos.put("Fecha", solicitud.getFecha().format(FECHA));
-        datos.put("Horario", solicitud.getHoraInicio().format(HORA) + " a " + solicitud.getHoraFin().format(HORA) + " (Chile continental)");
-        datos.put("Espacio", solicitud.getNombreEspacio());
-        datos.put("Artículos", String.join(", ", solicitud.getNombresArticulos()));
-        datos.put("Destino externo", solicitud.getDestinoExterno());
+        datos.put(etiqueta("solicitud"), "#" + solicitud.getIdSolicitud());
+        datos.put(etiqueta("fecha"), solicitud.getFecha().format(FECHA));
+        datos.put(etiqueta("horario"), CatalogoCorreos.texto("horario", Map.of("horaInicio", solicitud.getHoraInicio().format(HORA), "horaFin", solicitud.getHoraFin().format(HORA))));
+        datos.put(etiqueta("espacio"), solicitud.getNombreEspacio());
+        datos.put(etiqueta("articulos"), String.join(", ", solicitud.getNombresArticulos()));
+        datos.put(etiqueta("destinoExterno"), solicitud.getDestinoExterno());
         if (solicitud.getRecursosCowork() != null && !solicitud.getRecursosCowork().isEmpty()) {
-            datos.put("Recursos audiovisuales del cowork", solicitud.getRecursosCowork().stream()
+            datos.put(etiqueta("recursosCowork"), solicitud.getRecursosCowork().stream()
                     .map(RecursoCowork::etiqueta).collect(Collectors.joining(", ")));
         }
         return datos;
@@ -98,11 +81,11 @@ final class CorreoSolicitud {
 
     private static String enlaceCalendario(SolicitudResponseDTO solicitud) {
         String fechas = instante(solicitud, solicitud.getHoraInicio()) + "/" + instante(solicitud, solicitud.getHoraFin());
-        String lugar = "CITT Duoc UC Valparaíso";
+        String lugar = CatalogoCorreos.texto("calendario.lugar");
         if (solicitud.getNombreEspacio() != null && !solicitud.getNombreEspacio().isBlank()) {
             lugar += " · " + solicitud.getNombreEspacio();
         }
-        String detalles = "Solicitud #" + solicitud.getIdSolicitud() + " confirmada en Reservas CITT.\n" + CorreoCitt.PORTAL;
+        String detalles = CatalogoCorreos.texto("calendario.detalles", Map.of("idSolicitud", solicitud.getIdSolicitud().toString(), "portal", CorreoCitt.PORTAL));
         return UriComponentsBuilder.fromUriString("https://calendar.google.com/calendar/r/eventedit")
                 .queryParam("action", "TEMPLATE")
                 .queryParam("dates", "{fechas}")
@@ -113,11 +96,17 @@ final class CorreoSolicitud {
                 .queryParam("details", "{detalles}")
                 .encode()
                 .buildAndExpand(Map.of("fechas", fechas, "zona", ZONA_CITT.getId(),
-                        "titulo", "Reserva CITT #" + solicitud.getIdSolicitud(), "lugar", lugar, "detalles", detalles))
+                        "titulo", CatalogoCorreos.texto("calendario.titulo", variables(solicitud)), "lugar", lugar, "detalles", detalles))
                 .toUriString();
     }
 
     private static String instante(SolicitudResponseDTO solicitud, LocalTime hora) {
         return FECHA_CALENDARIO.format(solicitud.getFecha().atTime(hora).atZone(ZONA_CITT).toInstant());
     }
+
+    private static Map<String, String> variables(SolicitudResponseDTO solicitud) {
+        return Map.of("idSolicitud", solicitud.getIdSolicitud().toString());
+    }
+
+    private static String etiqueta(String id) { return CatalogoCorreos.texto("datos." + id); }
 }

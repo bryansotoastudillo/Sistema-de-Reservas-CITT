@@ -25,7 +25,7 @@ import java.util.Map;
 @Slf4j
 public class EmailService {
 
-    private static final String NOMBRE_REMITENTE = "CITT Duoc UC Valparaíso";
+    private static final String NOMBRE_REMITENTE = CatalogoCorreos.texto("remitente");
 
     @Value("${app.mail.provider:brevo}")
     private String provider = "brevo";
@@ -146,11 +146,8 @@ public class EmailService {
 
     public void enviarPasswordProvisoria(String destinatario, String password) {
         try {
-            enviarCorreo(destinatario, CorreoCitt.crear(
-                    "Tu cuenta de Reservas CITT está lista - Duoc UC", CorreoCitt.Estado.INFORMATIVO,
-                    "Bienvenido a Reservas CITT",
-                    "Inicia sesión con tu contraseña provisoria. El sistema te pedirá cambiarla en el primer acceso.",
-                    Map.of("Contraseña provisoria", password), "Iniciar sesión"));
+            enviarCorreo(destinatario, CorreoCitt.desdeCatalogo("cuenta.creada", CorreoCitt.Estado.INFORMATIVO,
+                    Map.of(), Map.of(CatalogoCorreos.texto("datos.claveProvisoria"), password)));
             log.info("Correo enviado exitosamente a {}", destinatario);
         } catch (Exception e) {
             log.error("Error crítico al enviar correo a {}: {}", destinatario, e.getMessage());
@@ -162,12 +159,10 @@ public class EmailService {
 
     public void enviarNuevaClaveProvisoria(String destinatario, String cuenta, String clave) {
         try {
-            enviarCorreo(destinatario, CorreoCitt.crear(
-                    "Nueva clave provisoria de Reservas CITT - Duoc UC", CorreoCitt.Estado.INFORMATIVO,
-                    "Tu nueva clave provisoria",
-                    "Ingresa con tu correo institucional y esta clave. El sistema te pedirá cambiarla al entrar.",
-                    Map.of("Correo para iniciar sesión", cuenta, "Contraseña provisoria", clave),
-                    "Iniciar sesión", "https://administracion.cittvalparaiso.cl/"));
+            enviarCorreo(destinatario, CorreoCitt.desdeCatalogo("cuenta.claveProvisoria", CorreoCitt.Estado.INFORMATIVO,
+                    Map.of(), Map.of(CatalogoCorreos.texto("datos.correoAcceso"), cuenta,
+                            CatalogoCorreos.texto("datos.claveProvisoria"), clave),
+                    "https://administracion.cittvalparaiso.cl/"));
         } catch (Exception e) {
             log.warn("No se pudo enviar la clave provisoria a {} ({})", destinatario, e.getClass().getSimpleName());
             throw new ReglaNegocioException("No se pudo enviar la clave provisoria. Intenta más tarde.",
@@ -177,12 +172,8 @@ public class EmailService {
 
     public void enviarPasswordRecuperacion(String destinatario, String codigo) {
         try {
-            enviarCorreo(destinatario, CorreoCitt.crear(
-                    "Código de recuperación de Reservas CITT - Duoc UC", CorreoCitt.Estado.INFORMATIVO,
-                    "Restablece tu contraseña",
-                    "Introduce este código en el formulario de recuperación y elige una nueva contraseña. "
-                            + "Si no solicitaste el cambio, puedes ignorar este mensaje.",
-                    Map.of("Código de recuperación", codigo), "Abrir Reservas CITT"));
+            enviarCorreo(destinatario, CorreoCitt.desdeCatalogo("cuenta.recuperacion", CorreoCitt.Estado.INFORMATIVO,
+                    Map.of(), Map.of(CatalogoCorreos.texto("datos.codigoRecuperacion"), codigo)));
             log.info("Correo de recuperación enviado exitosamente a {}", destinatario);
         } catch (Exception e) {
             log.error("Error al enviar recuperación a {}: {}", destinatario, e.getMessage());

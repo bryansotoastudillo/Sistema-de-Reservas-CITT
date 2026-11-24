@@ -11,19 +11,19 @@ record CorreoCitt(String asunto, String html) {
     static final String PORTAL = "https://cittvalparaiso.cl";
 
     enum Estado {
-        PENDIENTE("Pendiente de revisión", "#805000", "#fff4da"),
-        CONFIRMADA("Confirmada", "#176042", "#e7f4ed"),
-        RECHAZADA("Rechazada", "#922b28", "#fcebea"),
-        VENCIDA("Plazo vencido", "#805000", "#fff4da"),
-        ATRASADA("Devolución pendiente", "#805000", "#fff4da"),
-        INFORMATIVO("Información de cuenta", "#424242", "#f1f0ed");
+        PENDIENTE("solicitud.pendiente", "#805000", "#fff4da"),
+        CONFIRMADA("solicitud.aprobada", "#176042", "#e7f4ed"),
+        RECHAZADA("solicitud.rechazada", "#922b28", "#fcebea"),
+        VENCIDA("solicitud.vencidaSinRetiro", "#805000", "#fff4da"),
+        ATRASADA("solicitud.atrasada", "#805000", "#fff4da"),
+        INFORMATIVO("cuenta.creada", "#424242", "#f1f0ed");
 
-        private final String texto;
+        private final String idEtiqueta;
         private final String color;
         private final String fondo;
 
-        Estado(String texto, String color, String fondo) {
-            this.texto = texto;
+        Estado(String idEtiqueta, String color, String fondo) {
+            this.idEtiqueta = idEtiqueta;
             this.color = color;
             this.fondo = fondo;
         }
@@ -36,6 +36,22 @@ record CorreoCitt(String asunto, String html) {
 
     static CorreoCitt crear(String asunto, Estado estado, String titulo, String mensaje,
                             Map<String, String> datos, String boton, String enlace) {
+        return crear(asunto, estado, titulo, mensaje, datos, boton, enlace, CatalogoCorreos.etiqueta(estado.idEtiqueta));
+    }
+
+    static CorreoCitt desdeCatalogo(String id, Estado estado, Map<String, String> variables,
+                                   Map<String, String> datos) {
+        return desdeCatalogo(id, estado, variables, datos, PORTAL);
+    }
+
+    static CorreoCitt desdeCatalogo(String id, Estado estado, Map<String, String> variables,
+                                   Map<String, String> datos, String enlace) {
+        var m = CatalogoCorreos.mensaje(id, variables);
+        return crear(m.asunto(), estado, m.titulo(), m.mensaje(), datos, m.boton(), enlace, m.etiqueta());
+    }
+
+    private static CorreoCitt crear(String asunto, Estado estado, String titulo, String mensaje,
+                                    Map<String, String> datos, String boton, String enlace, String etiqueta) {
         String filas = datos.entrySet().stream()
                 .filter(dato -> dato.getValue() != null && !dato.getValue().isBlank())
                 .map(dato -> fila(dato.getKey(), dato.getValue()))
@@ -70,15 +86,15 @@ record CorreoCitt(String asunto, String html) {
                         <tr><td class="margen-citt" style="padding:20px 32px;border-top:5px solid #ffb81c">
                           <table role="presentation" cellspacing="0" cellpadding="0">
                             <tr>
-                              <td valign="middle" style="padding-right:15px;font-size:23px;line-height:28px;font-weight:bold;white-space:nowrap;color:#252525">Duoc UC</td>
+                              <td valign="middle" style="padding-right:15px;font-size:23px;line-height:28px;font-weight:bold;white-space:nowrap;color:#252525">%s</td>
                               <td valign="middle" style="border-left:1px solid #d8d5cd;padding-left:15px;font-size:13px;line-height:18px;color:#46443f">
-                                <strong>CITT</strong><br>Sede Valparaíso
+                                <strong>%s</strong><br>%s
                               </td>
                             </tr>
                           </table>
                         </td></tr>
                         <tr><td class="margen-citt" bgcolor="#262626" style="padding:26px 32px;color:#ffffff">
-                          <p style="margin:0 0 8px;color:#ffd16a;font-size:12px;font-weight:bold;letter-spacing:1px">SISTEMA DE RESERVAS CITT</p>
+                          <p style="margin:0 0 8px;color:#ffd16a;font-size:12px;font-weight:bold;letter-spacing:1px">%s</p>
                           <h1 class="titulo-citt" style="margin:0;font-size:32px;line-height:1.18;font-weight:bold;color:#ffffff">%s</h1>
                         </td></tr>
                         <tr><td class="margen-citt" style="padding:24px 32px 28px">
@@ -92,16 +108,19 @@ record CorreoCitt(String asunto, String html) {
                           </table>
                         </td></tr>
                         <tr><td class="margen-citt" bgcolor="#f8f7f4" style="border-top:1px solid #e3e1db;padding:18px 32px;font-size:13px;line-height:1.55;color:#514e48">
-                          <strong>Equipo CITT · Duoc UC Valparaíso</strong><br>
-                          Mensaje automático del <a href="%s" style="color:#35332f;text-decoration:underline">Sistema de Reservas CITT</a>.
+                          <strong>%s</strong><br>
+                          %s <a href="%s" style="color:#35332f;text-decoration:underline">%s</a>%s
                         </td></tr>
                       </table>
                       <!--[if mso]></td></tr></table><![endif]-->
                     </td></tr>
                   </table>
                 </body></html>
-                """.formatted(escapar(asunto), escapar(mensaje), escapar(titulo), estado.color, estado.fondo,
-                estado.texto, escapar(mensaje), detalles, escapar(enlace), escapar(boton), PORTAL);
+                """.formatted(escapar(asunto), escapar(mensaje), texto("marca"), texto("centro"), texto("sede"),
+                texto("encabezado"), escapar(titulo), estado.color, estado.fondo,
+                escapar(etiqueta), escapar(mensaje).replace("\r\n", "\n").replace("\n", "<br>"),
+                detalles, escapar(enlace), escapar(boton), texto("equipo"), texto("piePrefijo"),
+                PORTAL, texto("pieSistema"), texto("pieSufijo"));
         return new CorreoCitt(asunto, html);
     }
 
@@ -118,4 +137,6 @@ record CorreoCitt(String asunto, String html) {
     private static String escapar(String texto) {
         return HtmlUtils.htmlEscape(texto, StandardCharsets.UTF_8.name());
     }
+
+    private static String texto(String id) { return escapar(CatalogoCorreos.texto(id)); }
 }

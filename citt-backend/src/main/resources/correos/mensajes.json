@@ -1,0 +1,107 @@
+{
+  "textos": {
+    "remitente": "CITT Duoc UC Valparaíso",
+    "marca": "Duoc UC",
+    "centro": "CITT",
+    "sede": "Sede Valparaíso",
+    "encabezado": "SISTEMA DE RESERVAS CITT",
+    "equipo": "Equipo CITT · Duoc UC Valparaíso",
+    "piePrefijo": "Mensaje automático del",
+    "pieSistema": "Sistema de Reservas CITT",
+    "pieSufijo": ".",
+    "datos.solicitante": "Solicitante",
+    "datos.solicitud": "Solicitud",
+    "datos.motivo": "Motivo",
+    "datos.fecha": "Fecha",
+    "datos.horaTermino": "Hora de término",
+    "datos.horaLimite": "Hora límite",
+    "datos.horario": "Horario",
+    "datos.espacio": "Espacio",
+    "datos.articulos": "Artículos",
+    "datos.destinoExterno": "Destino externo",
+    "datos.recursosCowork": "Recursos audiovisuales del cowork",
+    "datos.claveProvisoria": "Contraseña provisoria",
+    "datos.correoAcceso": "Correo para iniciar sesión",
+    "datos.codigoRecuperacion": "Código de recuperación",
+    "motivoNoEspecificado": "No se especificó un motivo.",
+    "horario": "{horaInicio} a {horaFin} (Chile continental)",
+    "horaLimite": "{horaFin} (Chile continental)",
+    "calendario.titulo": "Reserva CITT #{idSolicitud}",
+    "calendario.lugar": "CITT Duoc UC Valparaíso",
+    "calendario.detalles": "Solicitud #{idSolicitud} confirmada en Reservas CITT.\n{portal}"
+  },
+  "correos": {
+    "solicitud.pendiente": {
+      "descripcion": "Aviso al coordinador y director para revisar una solicitud nueva.",
+      "asunto": "Nueva solicitud #{idSolicitud} pendiente de revisión - CITT",
+      "titulo": "Nueva solicitud de reserva",
+      "mensaje": "Se registró una nueva solicitud de espacio o artículos. Ingresa al sistema para revisarla.",
+      "etiqueta": "Pendiente de revisión",
+      "boton": "Revisar en Reservas CITT"
+    },
+    "solicitud.recibida": {
+      "descripcion": "Acuse de recibo enviado al solicitante.",
+      "asunto": "Solicitud #{idSolicitud} recibida - CITT Duoc UC",
+      "titulo": "Recibimos tu solicitud",
+      "mensaje": "El equipo CITT registró esta solicitud a tu nombre. Te avisaremos por correo cuando la revise.",
+      "etiqueta": "Pendiente de revisión",
+      "boton": "Abrir Reservas CITT"
+    },
+    "solicitud.aprobada": {
+      "descripcion": "Confirmación de la reserva, con enlace a Google Calendar.",
+      "asunto": "Reserva #{idSolicitud} confirmada - CITT Duoc UC",
+      "titulo": "Tu reserva está confirmada",
+      "mensaje": "Preséntate a la hora indicada para usar el espacio o retirar los artículos en el mesón del CITT.",
+      "etiqueta": "Confirmada",
+      "boton": "Agregar a Google Calendar"
+    },
+    "solicitud.rechazada": {
+      "descripcion": "Rechazo de una solicitud; el motivo se incorpora en la tabla de datos.",
+      "asunto": "Solicitud #{idSolicitud} rechazada - CITT Duoc UC",
+      "titulo": "Tu solicitud fue rechazada",
+      "mensaje": "Si tienes dudas sobre esta decisión, contacta al equipo o acércate al CITT.",
+      "etiqueta": "Rechazada",
+      "boton": "Abrir Reservas CITT"
+    },
+    "solicitud.vencidaSinRetiro": {
+      "descripcion": "Finalizó el horario de una solicitud aprobada sin registro de retiro; se distingue del rechazo.",
+      "asunto": "Venció el plazo de tu solicitud #{idSolicitud} · CITT Duoc UC",
+      "titulo": "Finalizó el horario de tu solicitud",
+      "mensaje": "El horario de tu solicitud aprobada ha terminado y no se registró el retiro de los recursos. Si utilizaste los recursos, contacta al equipo CITT para regularizar el registro. Si aún los necesitas, puedes realizar una nueva solicitud.",
+      "etiqueta": "Plazo vencido",
+      "boton": "Abrir Reservas CITT"
+    },
+    "solicitud.atrasada": {
+      "descripcion": "Aviso al usuario que tiene recursos pendientes de devolución.",
+      "asunto": "Aviso de devolución pendiente - CITT Duoc UC",
+      "titulo": "Se superó el horario de devolución",
+      "mensaje": "Acércate al CITT lo antes posible para devolver los recursos de tu reserva.",
+      "etiqueta": "Devolución pendiente",
+      "boton": "Abrir Reservas CITT"
+    },
+    "cuenta.creada": {
+      "descripcion": "Bienvenida y contraseña provisoria al registrar una cuenta.",
+      "asunto": "Tu cuenta de Reservas CITT está lista - Duoc UC",
+      "titulo": "Bienvenido a Reservas CITT",
+      "mensaje": "Inicia sesión con tu contraseña provisoria. El sistema te pedirá cambiarla en el primer acceso.",
+      "etiqueta": "Información de cuenta",
+      "boton": "Iniciar sesión"
+    },
+    "cuenta.claveProvisoria": {
+      "descripcion": "Nueva clave provisoria emitida por administración para una cuenta existente.",
+      "asunto": "Nueva clave provisoria de Reservas CITT - Duoc UC",
+      "titulo": "Tu nueva clave provisoria",
+      "mensaje": "Ingresa con tu correo institucional y esta clave. El sistema te pedirá cambiarla al entrar.",
+      "etiqueta": "Información de cuenta",
+      "boton": "Iniciar sesión"
+    },
+    "cuenta.recuperacion": {
+      "descripcion": "Código solicitado para restablecer una contraseña.",
+      "asunto": "Código de recuperación de Reservas CITT - Duoc UC",
+      "titulo": "Restablece tu contraseña",
+      "mensaje": "Introduce este código en el formulario de recuperación y elige una nueva contraseña. Si no solicitaste el cambio, puedes ignorar este mensaje.",
+      "etiqueta": "Información de cuenta",
+      "boton": "Abrir Reservas CITT"
+    }
+  }
+}
