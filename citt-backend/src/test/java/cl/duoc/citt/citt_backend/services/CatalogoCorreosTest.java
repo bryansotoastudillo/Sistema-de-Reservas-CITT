@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CatalogoCorreosTest {
     @ParameterizedTest
-    @ValueSource(strings = {"solicitud.pendiente", "solicitud.recibida", "solicitud.aprobada", "solicitud.rechazada",
+    @ValueSource(strings = {"solicitud.pendiente", "solicitud.recibida", "solicitud.aprobada", "solicitud.aprobadaEspacio", "solicitud.rechazada",
             "solicitud.vencidaSinRetiro", "solicitud.atrasada", "cuenta.creada", "cuenta.claveProvisoria", "cuenta.recuperacion"})
     void todosLosTiposSeResuelvenSinMarcadoresPendientes(String id) {
         var mensaje = CatalogoCorreos.mensaje(id, Map.of("idSolicitud", "42"));
@@ -41,6 +41,16 @@ class CatalogoCorreosTest {
         assertTrue(correo.html().contains("20261124T130000Z"));
         assertTrue(correo.html().contains("Sala &lt;A&gt;"));
         assertTrue(correo.html().contains("10:00 a 11:00 (Chile continental)"));
+    }
+
+    @Test void soloEspacioUsaSuConfirmacionYConservaElCalendario() {
+        var solicitud = SolicitudResponseDTO.builder().idSolicitud(43L).fecha(LocalDate.of(2026,11,24))
+                .horaInicio(LocalTime.of(10,0)).horaFin(LocalTime.of(11,0)).nombreEspacio("Sala Streaming")
+                .nombresArticulos(List.of()).build();
+        var correo = CorreoSolicitud.aprobada(solicitud);
+        assertTrue(correo.html().contains("Tu espacio está reservado"));
+        assertTrue(correo.html().contains("No necesitas registrar un retiro ni una devolución"));
+        assertTrue(correo.html().contains("calendar.google.com/calendar/r/eventedit"));
     }
 
     @Test void datosInsertadosNoSeVuelvenAInterpretar() {

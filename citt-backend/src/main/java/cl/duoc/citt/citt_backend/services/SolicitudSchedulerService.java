@@ -11,13 +11,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
  * Servicio programado que:
- * 1. Detecta solicitudes EN PROCESO cuya hora de fin ya pasó → ATRASADO
+ * 1. Artículos retirados cuya hora de fin ya pasó → ATRASADO
  * 2. Detecta solicitudes PENDIENTE cuya hora de fin ya pasó → RECHAZADA (nunca se aceptó)
- * 3. Detecta solicitudes APROBADA cuya hora de fin ya pasó → RECHAZADA (nunca se retiró)
+ * 3. Espacios aprobados vencidos → FINALIZADA, sin aviso de retiro/devolución.
+ * 4. Artículos aprobados sin retiro → FINALIZADA y aviso de plazo de retiro vencido.
  * Se ejecuta cada 5 minutos.
  */
 @Service
@@ -42,19 +44,25 @@ public class SolicitudSchedulerService {
                 .findByNombreIgnoreCase("APROBADA").orElse(null);
         EstadoSolicitud rechazada = estadoSolicitudRepository
                 .findByNombreIgnoreCase("RECHAZADA").orElse(null);
+        EstadoSolicitud finalizada = estadoSolicitudRepository
+                .findByNombreIgnoreCase("FINALIZADA").orElse(null);
 
-        if (enProceso == null || atrasado == null || rechazada == null) {
+        if (enProceso == null || atrasado == null || rechazada == null || finalizada == null) {
             return;
         }
 
-        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime ahora = LocalDateTime.now(ZoneId.of("America/Santiago"));
 
         // --- Lógica existente: EN PROCESO → ATRASADO ---
         List<Solicitud> enProcesoList = solicitudRepository.findByEstadoSolicitud(enProceso);
         for (Solicitud s : enProcesoList) {
             LocalDateTime limiteDevolucion = LocalDateTime.of(s.getFecha(), s.getHoraFin());
 
-            if (ahora.isAfter(limiteDevolucion)) {
+            if (!ahora.isBefore(limiteDevolucion)) {
+                if (!s.tieneArticulosRetirados()) {
+                    finalizar(s, finalizada);
+                    continue;
+                }
                 s.setEstadoSolicitud(atrasado);
                 solicitudRepository.save(s);
 
@@ -88,23 +96,41 @@ public class SolicitudSchedulerService {
             }
         }
 
-        // --- APROBADA → RECHAZADA (aceptada pero nunca se retiraron los recursos) ---
+        // La aprobación de un espacio no exige retiro ni devolución de recursos físicos.
         if (aprobada != null) {
             List<Solicitud> aprobadasList = solicitudRepository.findByEstadoSolicitud(aprobada);
             for (Solicitud s : aprobadasList) {
                 LocalDateTime limiteHora = LocalDateTime.of(s.getFecha(), s.getHoraFin());
-                if (ahora.isAfter(limiteHora)) {
-                    s.setEstadoSolicitud(rechazada);
-                    s.setMotivoRechazo("RECHAZADA AUTOMÁTICAMENTE: LA SOLICITUD FUE APROBADA PERO LOS RECURSOS NUNCA FUERON RETIRADOS ANTES DEL HORARIO LÍMITE (" + s.getHoraFin() + ").");
-                    solicitudRepository.save(s);
+                if (!ahora.isBefore(limiteHora)) {
+                    boolean retiroPendiente = s.tieneArticulos() && !s.tieneArticulosRetirados();
+                    if (s.tieneArticulosRetirados()) {
+                        s.setEstadoSolicitud(atrasado);
+                        solicitudRepository.save(s);
+                        s.correosNotificacion().forEach(correo -> emailService.enviarCorreoAtraso(correo, s.getFecha(), s.getHoraFin()));
+                        continue;
+                    }
+                    if (retiroPendiente) s.setMotivoRechazo("PLAZO DE RETIRO VENCIDO: NO SE REGISTRÓ EL RETIRO DE LOS ARTÍCULOS ANTES DE " + s.getHoraFin() + ".");
+                    finalizar(s, finalizada);
 
-                    s.correosNotificacion().forEach(correo ->
+                    if (retiroPendiente) s.correosNotificacion().forEach(correo ->
                             emailService.enviarCorreoVencimientoSinRetiro(correo, s.getIdSolicitud(), s.getHoraFin()));
 
-                    log.info("Solicitud #{} RECHAZADA automáticamente (APROBADA sin retiro, hora fin: {})",
+                    log.info("Solicitud #{} FINALIZADA automáticamente (hora fin: {})",
                             s.getIdSolicitud(), s.getHoraFin());
                 }
             }
         }
+        // Corregir registros antiguos de espacios que se hubieran marcado como atrasados.
+        for (Solicitud s : solicitudRepository.findByEstadoSolicitud(atrasado)) {
+            if (!s.tieneArticulosRetirados() && !ahora.isBefore(s.getFecha().atTime(s.getHoraFin()))) finalizar(s, finalizada);
+        }
+    }
+
+    private void finalizar(Solicitud s, EstadoSolicitud finalizada) {
+        s.setEstadoSolicitud(finalizada);
+        if (s.getEspacio() != null && s.getFechaLiberacionEspacio() == null) {
+            s.setFechaLiberacionEspacio(s.getFecha().atTime(s.getHoraFin()));
+        }
+        solicitudRepository.save(s);
     }
 }

@@ -31,6 +31,7 @@ public class SolicitudResponseDTO {
 
     // Feature 2: Timestamp real de devolución
     private java.time.LocalDateTime fechaDevolucionReal;
+    private java.time.LocalDateTime fechaRetiroReal;
 
     // Feature 4: Rastreo de daños por solicitud
     private Boolean espacioDanadoEnDevolucion;

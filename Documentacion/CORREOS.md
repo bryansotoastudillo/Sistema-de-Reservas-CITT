@@ -14,6 +14,7 @@ Cada entrada de `correos` tiene un ID estable. En Java se utiliza, por ejemplo,
 | `solicitud.pendiente` | Aviso a coordinadores y directores de una solicitud nueva |
 | `solicitud.recibida` | Acuse de recibo para el solicitante |
 | `solicitud.aprobada` | Reserva confirmada y botón para Google Calendar |
+| `solicitud.aprobadaEspacio` | Confirmación solo de espacio, sin retiro ni devolución de artículos |
 | `solicitud.rechazada` | Solicitud rechazada, acompañada de su motivo |
 | `solicitud.vencidaSinRetiro` | Finalizó el horario aprobado sin registro de retiro |
 | `solicitud.atrasada` | Recursos pendientes de devolución |

@@ -329,8 +329,9 @@ public class SolicitudServiceImpl implements SolicitudService {
 
         String nombreEstado = estadoDb.getNombre().toUpperCase();
 
-        if (nombreEstado.equals("EN PROCESO") || nombreEstado.equals("FINALIZADA")) {
-            throw new ReglaNegocioException("Para pasar a EN PROCESO o FINALIZADA, utilice las opciones de entregar o devolver equipos.");
+        if (!List.of("PENDIENTE", "APROBADA").contains(solicitud.getEstadoSolicitud().getNombre().toUpperCase())
+                || !List.of("APROBADA", "RECHAZADA").contains(nombreEstado)) {
+            throw new ReglaNegocioException("Solo se pueden aprobar o rechazar solicitudes pendientes o aprobadas. Para artículos retirados, registre su devolución.");
         }
 
         if (nombreEstado.equals("RECHAZADA")) {
@@ -362,6 +363,10 @@ public class SolicitudServiceImpl implements SolicitudService {
         Solicitud solicitud = solicitudRepository.bloquearPorId(idSolicitud)
                 .orElseThrow(() -> new ReglaNegocioException("Solicitud no encontrada"));
 
+        if (!solicitud.tieneArticulos()) {
+            throw new ReglaNegocioException("Esta solicitud solo reserva un espacio: no requiere retiro de artículos.");
+        }
+
         if (solicitud.correspondeA(emailAdmin)) {
             Usuario adminUser = usuarioRepository.findByEmail(emailAdmin)
                     .orElseThrow(() -> new ReglaNegocioException("Administrador no encontrado"));
@@ -390,8 +395,12 @@ public class SolicitudServiceImpl implements SolicitudService {
             throw new ReglaNegocioException("Operación rechazada: Solo se pueden entregar recursos para solicitudes que estén estrictamente en estado APROBADA.");
         }
 
-        if (!solicitud.getFecha().equals(LocalDate.now())) {
+        if (!solicitud.getFecha().equals(LocalDate.now(ZONA_CITT))) {
             throw new ReglaNegocioException("Restricción de tiempo: Solo se pueden retirar los equipos el día agendado para la reserva: " + solicitud.getFecha());
+        }
+
+        if (!LocalDateTime.now(ZONA_CITT).isBefore(solicitud.getFecha().atTime(solicitud.getHoraFin()))) {
+            throw new ReglaNegocioException("El horario de retiro ya finalizó. Debe generar una nueva solicitud.");
         }
 
         List<Articulo> articulosFisicos = new ArrayList<>();
@@ -449,6 +458,7 @@ public class SolicitudServiceImpl implements SolicitudService {
         EstadoSolicitud enProceso = estadoSolicitudRepository.findByNombreIgnoreCase("EN PROCESO")
                 .orElseThrow(() -> new ReglaNegocioException("Estado EN PROCESO no configurado en la BD."));
         solicitud.setEstadoSolicitud(enProceso);
+        solicitud.setFechaRetiroReal(LocalDateTime.now(ZONA_CITT));
 
         return mapToDTO(solicitudRepository.save(solicitud));
     }
@@ -456,8 +466,12 @@ public class SolicitudServiceImpl implements SolicitudService {
     @Override
     @Transactional
     public SolicitudResponseDTO devolverArticulos(Long idSolicitud, cl.duoc.citt.citt_backend.dto.DevolucionRequestDTO dto, String emailAdmin) {
-        Solicitud solicitud = solicitudRepository.findById(idSolicitud)
+        Solicitud solicitud = solicitudRepository.bloquearPorId(idSolicitud)
                 .orElseThrow(() -> new ReglaNegocioException("Solicitud no encontrada"));
+
+        if (!solicitud.tieneArticulosRetirados()) {
+            throw new ReglaNegocioException("No hay artículos retirados pendientes de devolución en esta solicitud.");
+        }
 
         if (solicitud.correspondeA(emailAdmin)) {
             Usuario adminUser = usuarioRepository.findByEmail(emailAdmin)
@@ -552,7 +566,7 @@ public class SolicitudServiceImpl implements SolicitudService {
         }
 
         // Feature 2: Guardar timestamp real de devolución
-        solicitud.setFechaDevolucionReal(LocalDateTime.now());
+        solicitud.setFechaDevolucionReal(LocalDateTime.now(ZONA_CITT));
 
         EstadoSolicitud finalizada = estadoSolicitudRepository.findByNombreIgnoreCase("FINALIZADA")
                 .orElseThrow(() -> new ReglaNegocioException("Estado FINALIZADA no configurado en la BD."));
@@ -657,6 +671,7 @@ public class SolicitudServiceImpl implements SolicitudService {
                 )
                 // Feature 2: Timestamp real de devolución
                 .fechaDevolucionReal(s.getFechaDevolucionReal())
+                .fechaRetiroReal(s.getFechaRetiroReal())
                 // Feature 4: Rastreo de daños por solicitud
                 .espacioDanadoEnDevolucion(s.getEspacioDanadoEnDevolucion())
                 .comentarioDanoEspacio(s.getComentarioDanoEspacio())

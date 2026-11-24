@@ -56,6 +56,8 @@ interface SolicitudDTO {
   registroAutogestion?: string;
   destinoExterno?: string;
   recursosCowork?: RecursoCowork[];
+  fechaRetiroReal?: string | null;
+  fechaDevolucionReal?: string | null;
 }
 
 interface ArticuloDTO {
@@ -67,6 +69,14 @@ interface ArticuloDTO {
 }
 
 const ESTADOS_ACTIVOS = ["PENDIENTE", "APROBADA", "EN PROCESO", "ATRASADO"];
+
+function tieneArticulos(s: SolicitudDTO) {
+  return !!(s.requerimientos?.length || s.articulosAsignados?.length || s.nombresArticulos?.length);
+}
+
+function fechaRegistro(valor: string) {
+  return new Date(valor).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" });
+}
 
 function VistaPreviaProposito({ texto, id, abrir }: { texto: string; id: number; abrir: () => void }) {
   const fila = useRef<HTMLDivElement>(null);
@@ -265,7 +275,7 @@ export const SolicitudesPage: React.FC = () => {
         `/solicitudes/${solicitudSeleccionada.idSolicitud}/entregar`,
         idsCombined
       );
-      setSuccessMsg("Artículos entregados exitosamente.");
+      setSuccessMsg("Retiro de artículos confirmado y registrado.");
       setTimeout(() => setSuccessMsg(""), 3000);
       setModalEntregar(false);
       setIdsFisicos("");
@@ -605,6 +615,9 @@ export const SolicitudesPage: React.FC = () => {
                                   | "MANTENCION"
                               }
                             />
+                            {s.fechaRetiroReal && <p className="mt-2 text-xs text-slate-600">Retiro confirmado: {fechaRegistro(s.fechaRetiroReal)}</p>}
+                            {s.fechaDevolucionReal && tieneArticulos(s) && <p className="mt-1 text-xs text-slate-600">Devolución registrada: {fechaRegistro(s.fechaDevolucionReal)}</p>}
+                            {!tieneArticulos(s) && s.estado === "APROBADA" && <p className="mt-2 text-xs text-slate-600">Espacio reservado · finaliza por horario</p>}
                             {s.registroAutogestion && (
                               <div 
                                 className="mt-1.5 flex items-center text-[11px] text-[#307FE2] font-medium tracking-wide group cursor-pointer transition-all" 
@@ -632,7 +645,7 @@ export const SolicitudesPage: React.FC = () => {
                             </div>
                           ) : (
                             <div className="flex flex-wrap justify-center gap-2 max-lg:pt-2 max-lg:[&_button]:min-h-11">
-                            {s.estado === "APROBADA" && (
+                            {s.estado === "APROBADA" && tieneArticulos(s) && (
                               <button
                                 onClick={() => {
                                   setSolicitudSeleccionada(s);
@@ -641,10 +654,10 @@ export const SolicitudesPage: React.FC = () => {
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold hover:bg-blue-100 hover:border-blue-300 transition-all cursor-pointer"
                               >
                                 <ArrowDownToLine size={14} />
-                                Entregar
+                                Confirmar retiro
                               </button>
                             )}
-                            {(s.estado === "EN PROCESO" || s.estado === "ATRASADO") && (
+                            {(s.estado === "EN PROCESO" || s.estado === "ATRASADO") && !!s.articulosAsignados?.length && !s.fechaDevolucionReal && (
                               <button
                                 onClick={() => {
                                   setSolicitudSeleccionada(s);
@@ -653,7 +666,7 @@ export const SolicitudesPage: React.FC = () => {
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold hover:bg-emerald-100 hover:border-emerald-300 transition-all cursor-pointer"
                               >
                                 <Undo2 size={14} />
-                                Devolver
+                                Registrar devolución
                               </button>
                             )}
                             {s.estado === "PENDIENTE" && (
@@ -725,7 +738,7 @@ export const SolicitudesPage: React.FC = () => {
                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
                   <ArrowDownToLine size={20} />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 m-0">Confirmar Entrega</h3>
+                <h3 className="text-lg font-bold text-gray-900 m-0">Confirmar retiro de artículos</h3>
               </div>
               <p className="text-slate-600 text-sm mb-4">
                 Por favor, ingresa los IDs de los artículos físicos que estás entregando (separados por coma) para la solicitud <strong>#{solicitudSeleccionada?.idSolicitud}</strong>.
@@ -828,7 +841,7 @@ export const SolicitudesPage: React.FC = () => {
                 }
                 className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm transition-colors cursor-pointer"
               >
-                Confirmar Entrega
+                Confirmar retiro
               </button>
             </div>
           </div>
@@ -850,7 +863,7 @@ export const SolicitudesPage: React.FC = () => {
                 </div>
               </div>
               <p className="text-slate-600 text-sm mb-6">
-                Por favor, verifica el estado en que se está entregando el espacio y los recursos físicos. Marca si hay algún daño y añade los detalles.
+                Confirma que los artículos fueron devueltos y verifica su estado. Marca si hay algún daño y añade los detalles.
               </p>
 
               {/* Daño en el Espacio */}

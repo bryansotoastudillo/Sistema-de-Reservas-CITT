@@ -47,6 +47,14 @@
       "etiqueta": "Pendiente de revisión",
       "boton": "Abrir Reservas CITT"
     },
+    "solicitud.aprobadaEspacio": {
+      "descripcion": "Confirmación de una reserva solo de espacio; no exige retirar ni devolver artículos.",
+      "asunto": "Reserva #{idSolicitud} confirmada - CITT Duoc UC",
+      "titulo": "Tu espacio está reservado",
+      "mensaje": "Tu solicitud fue aceptada y el espacio quedó reservado para la fecha y el horario indicados. Puedes agregar la reserva a tu calendario. No necesitas registrar un retiro ni una devolución de artículos para esta reserva.",
+      "etiqueta": "Confirmada",
+      "boton": "Agregar a Google Calendar"
+    },
     "solicitud.aprobada": {
       "descripcion": "Confirmación de la reserva, con enlace a Google Calendar.",
       "asunto": "Reserva #{idSolicitud} confirmada - CITT Duoc UC",

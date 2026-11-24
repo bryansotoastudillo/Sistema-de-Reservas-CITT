@@ -51,6 +51,20 @@ public class Solicitud {
     @Column(name = "fecha_devolucion_real")
     private java.time.LocalDateTime fechaDevolucionReal;
 
+    @Column(name = "fecha_retiro_real")
+    private java.time.LocalDateTime fechaRetiroReal;
+
+    public boolean tieneArticulos() {
+        return (requerimientos != null && !requerimientos.isEmpty())
+                || (articulos != null && !articulos.isEmpty());
+    }
+
+    public boolean tieneArticulosRetirados() {
+        boolean retiroConfirmado = fechaRetiroReal != null || (estadoSolicitud != null
+                && ("EN PROCESO".equalsIgnoreCase(estadoSolicitud.getNombre()) || "ATRASADO".equalsIgnoreCase(estadoSolicitud.getNombre())));
+        return retiroConfirmado && articulos != null && !articulos.isEmpty() && fechaDevolucionReal == null;
+    }
+
     @Column(name = "fecha_liberacion_espacio")
     private java.time.LocalDateTime fechaLiberacionEspacio;
 

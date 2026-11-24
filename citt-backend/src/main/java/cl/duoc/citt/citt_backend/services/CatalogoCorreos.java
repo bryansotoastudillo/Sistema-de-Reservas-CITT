@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 final class CatalogoCorreos {
     private static final Pattern VARIABLE = Pattern.compile("\\{([a-zA-Z][a-zA-Z0-9]*)}");
     private static final Set<String> IDS = Set.of("solicitud.pendiente", "solicitud.recibida",
-            "solicitud.aprobada", "solicitud.rechazada", "solicitud.vencidaSinRetiro", "solicitud.atrasada",
+            "solicitud.aprobada", "solicitud.aprobadaEspacio", "solicitud.rechazada", "solicitud.vencidaSinRetiro", "solicitud.atrasada",
             "cuenta.creada", "cuenta.claveProvisoria", "cuenta.recuperacion");
     private static final Set<String> TEXTOS = Set.of("remitente", "marca", "centro", "sede", "encabezado",
             "equipo", "piePrefijo", "pieSistema", "pieSufijo", "datos.solicitante", "datos.solicitud",

@@ -51,6 +51,7 @@ interface SolicitudDTO {
   nombreEspacio: string | null;
   nombresArticulos: string[];
   fechaDevolucionReal?: string;
+  fechaRetiroReal?: string;
   articulosAsignados?: ArticuloAsignadoDTO[];
   requerimientos?: RequerimientoDTO[];
   espacioDanadoEnDevolucion?: boolean;
@@ -435,7 +436,11 @@ export const HistorialPage: React.FC = () => {
                     {formatHora(solicitudDetalle.horaInicio)} - {formatHora(solicitudDetalle.horaFin)}
                   </p>
                 </div>
-                {solicitudDetalle.estado !== "RECHAZADA" && (
+                {solicitudDetalle.fechaRetiroReal && <div className="bg-blue-50 rounded-xl p-4">
+                  <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1">Retiro confirmado</p>
+                  <p className="text-sm font-semibold text-blue-800 m-0">{formatFechaDevolucion(solicitudDetalle.fechaRetiroReal)}</p>
+                </div>}
+                {solicitudDetalle.estado !== "RECHAZADA" && !!solicitudDetalle.nombresArticulos?.length && (
                 <div className="bg-emerald-50 rounded-xl p-4">
                   <p className="text-xs text-emerald-600 font-bold uppercase tracking-wide mb-1">Devolución Real</p>
                   <p className="text-sm font-semibold text-emerald-800 m-0 flex items-center gap-1.5">

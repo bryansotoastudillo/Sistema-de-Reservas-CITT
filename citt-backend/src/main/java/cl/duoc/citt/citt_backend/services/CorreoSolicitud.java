@@ -37,7 +37,9 @@ final class CorreoSolicitud {
     }
 
     static CorreoCitt aprobada(SolicitudResponseDTO solicitud) {
-        return CorreoCitt.desdeCatalogo("solicitud.aprobada", Estado.CONFIRMADA, variables(solicitud),
+        boolean soloEspacio = solicitud.getNombreEspacio() != null
+                && (solicitud.getNombresArticulos() == null || solicitud.getNombresArticulos().isEmpty());
+        return CorreoCitt.desdeCatalogo(soloEspacio ? "solicitud.aprobadaEspacio" : "solicitud.aprobada", Estado.CONFIRMADA, variables(solicitud),
                 datosReserva(solicitud), enlaceCalendario(solicitud));
     }
 

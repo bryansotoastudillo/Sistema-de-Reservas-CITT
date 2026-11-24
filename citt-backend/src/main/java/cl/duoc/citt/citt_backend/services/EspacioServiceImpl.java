@@ -184,8 +184,7 @@ public class EspacioServiceImpl implements EspacioService {
     private boolean sigueEnUso(Solicitud solicitud, LocalDateTime ahora) {
         if (solicitud.getFechaLiberacionEspacio() != null) return false;
         return switch (solicitud.getEstadoSolicitud().getNombre()) {
-            case "EN PROCESO", "ATRASADO" -> true;
-            case "APROBADA" -> solicitud.getFecha().equals(ahora.toLocalDate())
+            case "APROBADA", "EN PROCESO", "ATRASADO", "FINALIZADA" -> solicitud.getFecha().equals(ahora.toLocalDate())
                     && !solicitud.getHoraInicio().isAfter(ahora.toLocalTime())
                     && solicitud.getHoraFin().isAfter(ahora.toLocalTime());
             default -> false;
