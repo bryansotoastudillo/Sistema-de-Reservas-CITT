@@ -69,8 +69,7 @@ public class PlanoCittController {
     @PreAuthorize("hasAnyRole('COORDINADOR', 'DIRECTOR')")
     public ResponseEntity<Distribucion> guardar(@RequestBody Distribucion distribucion) throws JsonProcessingException {
         var posiciones = distribucion.posiciones();
-        if (distribucion.revision() < 0 || distribucion.revision() == Long.MAX_VALUE || posiciones == null || posiciones.size() > 250
-                || posiciones.entrySet().stream().anyMatch(entrada -> !posicionValida(entrada.getKey(), entrada.getValue()))) {
+        if (!distribucionValida(distribucion)) {
             throw new ReglaNegocioException("Distribución del plano inválida");
         }
         long revision = distribucion.revision();
@@ -90,6 +89,12 @@ public class PlanoCittController {
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Distribución guardada inválida", e);
         }
+    }
+
+    static boolean distribucionValida(Distribucion d) {
+        return d != null && d.revision() >= 0 && d.revision() < Long.MAX_VALUE && d.posiciones() != null
+                && d.posiciones().size() <= 250 && d.posiciones().entrySet().stream()
+                .allMatch(e -> e.getKey() != null && posicionValida(e.getKey(), e.getValue()));
     }
 
     private static boolean valida(Double valor, int maximo) {

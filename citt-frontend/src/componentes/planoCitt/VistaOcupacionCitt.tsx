@@ -11,6 +11,7 @@ import { estadosPlano } from "./estadosPlano";
 import type { EstadoPlano } from "./estadosPlano";
 import { objetosDelPlano, pasoCuadricula } from "./geometriaCitt";
 import { EditorMuebles } from "./EditorMuebles";
+import { DisenosPlano } from "./DisenosPlano";
 import { moverObjetoPlano, moverObjetosPlano } from "./movimientoPlano";
 import { useHistorialPlano } from "./useHistorialPlano";
 import type { PosicionPlano, PosicionesPlano } from "./geometriaCitt";
@@ -58,6 +59,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
   const [guardando, setGuardando] = useState(false);
   const [intentoPlano, setIntentoPlano] = useState(0);
   const [errorPlano, setErrorPlano] = useState("");
+  const [biblioteca, setBiblioteca] = useState(false);
   const editar = borrador !== null;
   const posiciones = borrador ?? distribucion?.posiciones ?? {};
   const objetosEditables = objetosDelPlano(posiciones);
@@ -69,7 +71,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
   const paso = modoMovimiento === "cuadricula" ? tamanoCuadricula / (medioPaso ? 2 : 1) : 0;
 
   useEffect(() => {
-    if (!editar || guardando) return;
+    if (!editar || guardando || biblioteca) return;
     function teclado(event: KeyboardEvent) {
       if (event.defaultPrevented || event.isComposing || !(event.ctrlKey || event.metaKey) || event.altKey) return;
       const objetivo = event.target;
@@ -83,7 +85,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
     }
     window.addEventListener("keydown", teclado);
     return () => window.removeEventListener("keydown", teclado);
-  }, [editar, guardando, deshacer, rehacer]);
+  }, [editar, guardando, biblioteca, deshacer, rehacer]);
 
   function seleccionar(clave: string, sumar = false) {
     if (guardando) return;
@@ -285,6 +287,8 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
         <button type="button" disabled={guardando} aria-pressed={modoMovimiento === "cuadricula"}
           onClick={() => setModoMovimiento("cuadricula")}
           className="min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-[#003b73] aria-pressed:border-[#003b73] aria-pressed:bg-blue-50 disabled:opacity-50">Cuadrícula de ajuste</button>
+        <button type="button" disabled={guardando} onClick={()=>setBiblioteca(true)}
+          className="ml-auto min-h-11 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-[#003b73]">Diseños guardados</button>
         {modoMovimiento === "cuadricula" && <div className="flex w-full flex-wrap items-center gap-x-6 gap-y-3 border-t border-slate-100 pt-3">
           <label className="flex w-full flex-col gap-2 text-sm text-slate-700 sm:w-64">
             <span className="flex justify-between gap-3 font-semibold">Tamaño de la cuadrícula <output>{cuadriculaCm} cm</output></span>
@@ -450,6 +454,9 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
         </aside>
       </div>
       {children}
+      {editar && biblioteca && <DisenosPlano posiciones={posiciones} cerrar={()=>setBiblioteca(false)} cargar={p=>{
+        cerrarGesto();cambiarBorrador(p);setSeleccion(null);
+      }}/>}
     </section>
   );
 }

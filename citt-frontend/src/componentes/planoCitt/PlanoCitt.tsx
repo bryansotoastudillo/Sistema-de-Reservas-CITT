@@ -224,7 +224,8 @@ export function PlanoCitt({ estados, nombres, seleccion, selecciones, onSeleccio
             <title>{zona.nombre}</title>
             {zona.muebles.map((mueble, indice) => <Mueble3D key={indice} camara={camara} mueble={mueble} />)}
             {editar && (!zona.zonaPadre || seleccionados.has(zona.clave)) &&
-              <polygon points={puntos(camara, zona.base, zona.zonaPadre ? zona.muebles[0].altura + 1 : 57)}
+              <polygon data-contorno-objeto={zona.clave} points={puntos(camara, zona.base,
+                Math.max(...zona.muebles.map(m => m.altura + (m.tipo === "asiento" ? 9 : 0))) + 1)}
                 pointerEvents="none" fill="none" stroke={seleccionados.has(zona.clave) ? "#003b73" : "#64748b"} strokeWidth="3" />}
           </g>
         );
