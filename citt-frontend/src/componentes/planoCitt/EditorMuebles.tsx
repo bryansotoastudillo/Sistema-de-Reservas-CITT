@@ -1,6 +1,24 @@
 import { Eye, EyeOff, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { objetosDelPlano } from "./geometriaCitt";
 import type { PosicionesPlano, PosicionPlano } from "./geometriaCitt";
+
+function DimensionMueble({ valor, maximo, cambiar, comenzarGesto, cerrarGesto }: {
+  valor: number; maximo: number; cambiar: (valor: number) => void;
+  comenzarGesto: () => void; cerrarGesto: () => void;
+}) {
+  const [edicion, setEdicion] = useState<string | null>(null);
+  return <input type="number" min={10} max={maximo} step="0.1" value={edicion ?? Number(valor.toFixed(1))}
+    className="w-24 rounded border border-slate-300 p-2"
+    onFocus={event => { comenzarGesto(); setEdicion(event.target.value); }}
+    onChange={event => setEdicion(event.target.value)}
+    onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }}
+    onBlur={event => {
+      if (event.target.value && event.target.validity.valid) cambiar(Number(event.target.value));
+      setEdicion(null);
+      cerrarGesto();
+    }} />;
+}
 
 export function EditorMuebles({ posiciones, selecciones, seleccionar, cambiar, agregar, eliminar, bloqueado, comenzarGesto, cerrarGesto }: {
   posiciones: PosicionesPlano; selecciones: string[]; seleccionar: (clave: string, sumar?: boolean) => void;
@@ -67,9 +85,9 @@ export function EditorMuebles({ posiciones, selecciones, seleccionar, cambiar, a
             ? Math.max(...o.base.map(p => p[0])) - Math.min(...o.base.map(p => p[0]))
             : Math.max(...o.base.map(p => p[1])) - Math.min(...o.base.map(p => p[1]))) / escala;
           return <label key={campo} className="flex items-center justify-between gap-2">{['Ancho (cm)', 'Fondo (cm)', 'Alto (cm)'][i]}
-            <input type="number" min={10} max={campo === 'altura' ? 250 : 400} step="0.1" value={Number(valor.toFixed(1))}
-              className="w-24 rounded border border-slate-300 p-2" onFocus={comenzarGesto} onBlur={cerrarGesto}
-              onChange={e => { if (e.target.validity.valid && e.target.value && mismoTipo) cambiar(claves, { [campo]: Number(e.target.value) }); }} />
+            <DimensionMueble valor={valor} maximo={campo === 'altura' ? 250 : 400}
+              comenzarGesto={comenzarGesto} cerrarGesto={cerrarGesto}
+              cambiar={valor => { if (mismoTipo) cambiar(claves, { [campo]: valor }); }} />
           </label>;
         })}
         {elegidos.length > 1 && <p className="text-xs text-slate-600">Se muestra el valor del primer objeto. Cambiar un campo aplica ese valor a toda la selección.</p>}

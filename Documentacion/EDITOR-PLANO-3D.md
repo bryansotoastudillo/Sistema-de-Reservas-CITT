@@ -28,6 +28,8 @@ visibilidad y eliminación, pero deshabilita color y dimensiones. Los modelos de
 y silla genérica se consideran tipos distintos. Las mesas redondas y rectangulares también son tipos distintos.
 
 El panel muestra los valores del primer objeto; al modificar un campo se aplica ese valor a todos los seleccionados.
+Los valores numéricos se pueden escribir completos y se aplican al pulsar Enter o salir del campo;
+si el valor final no es válido, se conserva la dimensión anterior.
 Los muebles originales eliminados se ocultan para poder recuperarlos; los adicionales se quitan de la distribución.
 Ambas operaciones pueden deshacerse durante la sesión.
 
