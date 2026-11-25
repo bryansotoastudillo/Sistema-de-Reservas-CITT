@@ -30,4 +30,12 @@ class PlanoCittPropiedadesTest {
     private boolean valida(String clave, PlanoCittController.Posicion posicion) {
         return Boolean.TRUE.equals(ReflectionTestUtils.invokeMethod(PlanoCittController.class, "posicionValida", clave, posicion));
     }
+
+    @Test void sillaCoworkSeGuardaYSeRecuperaParaElVisor() throws Exception {
+        var silla = new PlanoCittController.Posicion(20d, 30d, 15d, false, "sillaCowork", "#ef9347", 50d, 50d, 100d);
+        assertTrue(valida("extra-12345678-1234-1234-1234-123456789abc", silla));
+        assertEquals(silla, json.readValue(json.writeValueAsString(silla), PlanoCittController.Posicion.class));
+        assertFalse(valida("extra-12345678-1234-1234-1234-123456789abc",
+                new PlanoCittController.Posicion(0d, 0d, 0d, false, "tipoDesconocido", "#123456", 50d, 50d, 100d)));
+    }
 }

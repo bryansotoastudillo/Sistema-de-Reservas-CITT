@@ -2,6 +2,7 @@ import { rectangulo } from "./geometriaCitt";
 import type { Mueble, Punto } from "./geometriaCitt";
 import { puntos } from "./camaraCitt";
 import type { Camara } from "./camaraCitt";
+import { SillaCowork3D } from "./SillaCowork3D";
 
 export function Prisma({ camara, base, altura, fondo, canto, borde, nivel = 0, cantoLateral }: {
   camara: Camara; base: Punto[]; altura: number; fondo: string; canto: string; borde: string;
@@ -99,6 +100,7 @@ function SillaReunion3D({ camara, mueble }: { camara: Camara; mueble: Mueble }) 
 }
 
 export function Mueble3D({ camara, mueble }: { camara: Camara; mueble: Mueble }) {
+  if (mueble.tipo === "sillaCowork") return <SillaCowork3D camara={camara} mueble={mueble} />;
   if (mueble.tipo === "sillaReunion") return <SillaReunion3D camara={camara} mueble={mueble} />;
   const x = Math.min(...mueble.base.map(p => p[0]));
   const y = Math.min(...mueble.base.map(p => p[1]));

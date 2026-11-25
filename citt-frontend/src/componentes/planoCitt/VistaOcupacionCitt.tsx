@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Undo2, Redo2 } from "lucide-react";
 import { Eye, EyeOff, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CalendarPlus, Maximize, Minimize, Pencil, RefreshCw, RotateCcw, RotateCw, Users, ZoomIn, ZoomOut } from "lucide-react";
 import { isAxiosError } from "axios";
 import { Link, useNavigate } from "react-router-dom";
@@ -10,7 +11,8 @@ import { estadosPlano } from "./estadosPlano";
 import type { EstadoPlano } from "./estadosPlano";
 import { objetosDelPlano, pasoCuadricula } from "./geometriaCitt";
 import { EditorMuebles } from "./EditorMuebles";
-import { moverObjetoPlano } from "./movimientoPlano";
+import { moverObjetoPlano, moverObjetosPlano } from "./movimientoPlano";
+import { useHistorialPlano } from "./useHistorialPlano";
 import type { PosicionPlano, PosicionesPlano } from "./geometriaCitt";
 
 const ANGULO_INICIAL = 25;
@@ -37,7 +39,8 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
   children?: ReactNode;
 }) {
   const navigate = useNavigate();
-  const [seleccion, setSeleccion] = useState<string | null>(null);
+  const [seleccionGuardada, setSelecciones] = useState<string[]>([]);
+  const setSeleccion = (clave: string | null) => setSelecciones(clave ? [clave] : []);
   const [angulo, setAngulo] = useState(ANGULO_INICIAL);
   const [inclinacion, setInclinacion] = useState(INCLINACION_INICIAL);
   const [zoom, setZoom] = useState(1);
@@ -45,20 +48,49 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
   const [pantallaCompleta, setPantallaCompleta] = useState(false);
   const [errorPantalla, setErrorPantalla] = useState("");
   const [distribucion, setDistribucion] = useState<Distribucion | null>(null);
-  const [borrador, setBorrador] = useState<PosicionesPlano | null>(null);
+  const historial = useHistorialPlano();
+  const { borrador, cambiar: cambiarBorrador, iniciar: iniciarBorrador, comenzarGesto, cerrarGesto, deshacer, rehacer } = historial;
   const [modoMovimiento, setModoMovimiento] = useState<"libre" | "cuadricula">("libre");
   const [cuadriculaCm, setCuadriculaCm] = useState(20);
   const [medioPaso, setMedioPaso] = useState(false);
   const inicioArrastre = useRef<PosicionesPlano | null>(null);
+  const seleccionArrastre = useRef<string[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [intentoPlano, setIntentoPlano] = useState(0);
   const [errorPlano, setErrorPlano] = useState("");
   const editar = borrador !== null;
   const posiciones = borrador ?? distribucion?.posiciones ?? {};
   const objetosEditables = objetosDelPlano(posiciones);
+  const existentes = new Set(objetosEditables.map(o => o.clave));
+  const selecciones = seleccionGuardada.filter(clave => existentes.has(clave));
+  const seleccion = selecciones.at(-1) ?? null;
   const tamanoCuadricula = pasoCuadricula * cuadriculaCm / 20;
   const pasoCm = medioPaso ? cuadriculaCm / 2 : cuadriculaCm;
   const paso = modoMovimiento === "cuadricula" ? tamanoCuadricula / (medioPaso ? 2 : 1) : 0;
+
+  useEffect(() => {
+    if (!editar || guardando) return;
+    function teclado(event: KeyboardEvent) {
+      if (event.defaultPrevented || event.isComposing || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const objetivo = event.target;
+      if (objetivo instanceof Element && (objetivo.closest('textarea, select, [contenteditable]:not([contenteditable="false"]), input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="range"]):not([type="submit"])')
+          || objetivo !== document.body && !panel.current?.contains(objetivo))) return;
+      const tecla = event.key.toLowerCase();
+      if (tecla === "z" || tecla === "y") {
+        event.preventDefault();
+        if (tecla === "y" || event.shiftKey) rehacer(); else deshacer();
+      }
+    }
+    window.addEventListener("keydown", teclado);
+    return () => window.removeEventListener("keydown", teclado);
+  }, [editar, guardando, deshacer, rehacer]);
+
+  function seleccionar(clave: string, sumar = false) {
+    if (guardando) return;
+    setSelecciones(actual => editar && sumar
+      ? actual.includes(clave) ? actual.filter(c => c !== clave) : [...actual, clave]
+      : [clave]);
+  }
 
   useEffect(() => {
     function sincronizarPantalla() {
@@ -98,40 +130,52 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
 
   function mover(clave: string, dx: number, dy: number, grados = 0) {
     if (guardando) return;
-    setBorrador(actual => actual && moverObjetoPlano(actual, clave,
+    cambiarBorrador(actual => moverObjetosPlano(actual, selecciones.includes(clave) ? selecciones : [clave],
       paso ? Math.sign(dx) * paso : dx, paso ? Math.sign(dy) * paso : dy, grados, paso));
   }
 
   function iniciarMovimiento(clave: string) {
     inicioArrastre.current = null;
     if (!borrador || guardando) return;
-    const inicial = paso ? moverObjetoPlano(borrador, clave, 0, 0, 0, paso) : borrador;
+    const claves = selecciones.includes(clave) ? selecciones : [clave];
+    comenzarGesto();
+    seleccionArrastre.current = claves;
+    const inicial = paso ? moverObjetosPlano(borrador, claves, 0, 0, 0, paso) : borrador;
     inicioArrastre.current = inicial;
-    setSeleccion(clave);
-    setBorrador(inicial);
+    setSelecciones(claves);
+    cambiarBorrador(inicial);
   }
 
   function arrastrarObjeto(clave: string, dx: number, dy: number) {
     if (!inicioArrastre.current || guardando) return;
-    setBorrador(moverObjetoPlano(inicioArrastre.current, clave, dx, dy, 0, paso));
+    cambiarBorrador(moverObjetosPlano(inicioArrastre.current, seleccionArrastre.current, dx, dy, 0, paso));
   }
 
-  function cambiarObjeto(clave: string, propiedades: Partial<PosicionPlano>) {
+  function cambiarObjetos(claves: string[], propiedades: Partial<PosicionPlano>) {
     if (guardando) return;
-    setBorrador(actual => {
-      if (!actual) return actual;
-      const siguientes = { ...actual, [clave]: { ...(actual[clave] ?? { x: 0, y: 0 }), ...propiedades } };
-      return moverObjetoPlano(siguientes, clave, 0, 0);
+    if (claves.length > 1 && ["color", "ancho", "fondo", "altura"].some(campo => campo in propiedades)) {
+      const elegidos = objetosEditables.filter(o => claves.includes(o.clave));
+      const tipo = elegidos[0]?.muebles[0]?.tipo;
+      if (!tipo || elegidos.some(o => o.marcador || o.muebles[0]?.tipo !== tipo)) return;
+    }
+    cambiarBorrador(actual => {
+      let siguientes = { ...actual };
+      for (const clave of claves) siguientes[clave] = { ...(actual[clave] ?? { x: 0, y: 0 }), ...propiedades };
+      for (const clave of claves) siguientes = moverObjetoPlano(siguientes, clave, 0, 0);
+      return siguientes;
     });
   }
 
-  function eliminarObjeto(clave: string) {
+  function cambiarObjeto(clave: string, propiedades: Partial<PosicionPlano>) { cambiarObjetos([clave], propiedades); }
+
+  function eliminarObjetos(claves: string[]) {
     if (guardando) return;
-    setBorrador(actual => {
-      if (!actual) return actual;
-      if (!clave.startsWith("extra-")) return { ...actual, [clave]: { ...(actual[clave] ?? { x: 0, y: 0 }), oculto: true } };
+    cambiarBorrador(actual => {
       const siguientes = { ...actual };
-      delete siguientes[clave];
+      for (const clave of claves) {
+        if (clave.startsWith("extra-")) delete siguientes[clave];
+        else siguientes[clave] = { ...(actual[clave] ?? { x: 0, y: 0 }), oculto: true };
+      }
       return siguientes;
     });
     setSeleccion(null);
@@ -146,7 +190,7 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
         revision: distribucion.revision, posiciones: borrador,
       });
       setDistribucion(data);
-      setBorrador(null);
+      iniciarBorrador(null);
       setSeleccion(null);
     } catch (error) {
       setErrorPlano(isAxiosError(error) && error.response?.status === 409
@@ -167,10 +211,10 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
   const estados = Object.fromEntries(zonas.map((zona) => [zona.clave, zona.estado]));
   const zonaSeleccionada = zonas.find((zona) => zona.clave === seleccion);
 
-  function activarEspacio(clave: string) {
+  function activarEspacio(clave: string, sumar = false) {
     const espacio = zonas.find(zona => zona.clave === clave)?.espacio;
     if (editar || !espacio || normalizar(espacio.estado ?? "") !== "disponible") {
-      setSeleccion(clave);
+      seleccionar(clave, sumar);
       return;
     }
     navigate("/crear-solicitud", { state: { idEspacio: espacio.id, nombreEspacio: espacio.nombre } });
@@ -200,19 +244,28 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
           {pantallaCompleta ? "Salir de pantalla completa" : "Pantalla completa"}
         </button>
         {permitirEdicion && !editar && distribucion && <button type="button" onClick={() => {
-          setBorrador(distribucion.posiciones);
+          iniciarBorrador(distribucion.posiciones);
+          setSelecciones([]);
           setModoMovimiento("libre");
           setErrorPlano("");
         }} className="inline-flex items-center gap-2 rounded-lg bg-[#003b73] px-3 py-2 text-sm font-semibold text-white">
           <Pencil size={15} aria-hidden="true" /> Editar plano
         </button>}
         {editar && <>
+          <button type="button" disabled={guardando || !historial.puedeDeshacer} onClick={deshacer}
+            title="Deshacer (Ctrl+Z)" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40">
+            <Undo2 size={16} /> Deshacer
+          </button>
+          <button type="button" disabled={guardando || !historial.puedeRehacer} onClick={rehacer}
+            title="Rehacer (Ctrl+Y)" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40">
+            <Redo2 size={16} /> Rehacer
+          </button>
           <button type="button" onClick={guardarPlano} disabled={guardando}
             className="rounded-lg bg-[#003b73] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
             {guardando ? "Guardando…" : "Guardar plano"}
           </button>
           <button type="button" disabled={guardando} onClick={() => {
-            setBorrador(null);
+            iniciarBorrador(null);
             setSeleccion(null);
             setErrorPlano("");
             setIntentoPlano(valor => valor + 1);
@@ -302,19 +355,19 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
               }
             }}>
             <div className={pantallaCompleta ? "h-full" : "min-w-[570px]"}>
-              <PlanoCitt estados={estados} seleccion={seleccion} onSeleccion={activarEspacio}
+              <PlanoCitt estados={estados} seleccion={seleccion} selecciones={editar ? selecciones : undefined} onSeleccion={activarEspacio}
                 nombres={Object.fromEntries(zonas.map(zona => [zona.clave, zona.nombre]))}
                 angulo={angulo} inclinacion={inclinacion} onGirar={girar}
                 zoom={zoom} onZoom={cambiarZoom} ajustarAltura={pantallaCompleta}
                 posiciones={borrador ?? distribucion?.posiciones ?? {}} editar={editar}
                 cuadricula={editar && modoMovimiento === "cuadricula"}
                 tamanoCuadricula={tamanoCuadricula} medioPaso={medioPaso}
-                onIniciarMovimiento={iniciarMovimiento} onMover={arrastrarObjeto} />
+                onIniciarMovimiento={iniciarMovimiento} onFinalizarMovimiento={cancelar => cerrarGesto(cancelar)} onMover={arrastrarObjeto} />
             </div>
           </div>
           <figcaption className="flex shrink-0 flex-wrap justify-between gap-2 px-4 pb-4 text-xs text-slate-600 md:px-6">
             <span>{editar
-              ? "Arrastra con el clic izquierdo para mover objetos y con el derecho para girar. Usa la rueda para acercar o alejar."
+              ? "Shift + clic para seleccionar varios. Arrastra con el izquierdo para mover y con el derecho para girar la cámara. Ctrl+Z deshace; Ctrl+Y rehace."
               : "Selecciona un espacio para reservar. Arrastra el plano para girarlo y usa la rueda para acercar o alejar."}</span>
             {typeof consulta === "object" && <span>Actualizado a las {horaSede.format(consulta.actualizado)}</span>}
           </figcaption>
@@ -325,10 +378,10 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
           <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 xl:grid-cols-1">
             {zonas.filter(zona => editar || !posiciones[zona.clave]?.oculto).map((zona) => {
               const estado = estadosPlano[zona.estado];
-              const activa = zona.clave === seleccion;
+              const activa = selecciones.includes(zona.clave);
               return (
                 <li key={zona.clave} className="flex items-center gap-1">
-                  <button type="button" onClick={() => setSeleccion(zona.clave)} aria-pressed={activa}
+                  <button type="button" onClick={event => seleccionar(zona.clave, event.shiftKey)} aria-pressed={activa}
                     className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-1.5 text-left ${activa ? "bg-blue-50 ring-1 ring-blue-200" : "hover:bg-slate-50"}`}>
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
                       style={{ background: estado.color }} aria-hidden="true">{zona.clave}</span>
@@ -348,8 +401,10 @@ export function VistaOcupacionCitt({ consulta, actualizar, permitirEdicion = tru
             })}
           </ul>
           {editar && <>
-            <EditorMuebles posiciones={posiciones} seleccion={seleccion} seleccionar={setSeleccion}
-              cambiar={cambiarObjeto} eliminar={eliminarObjeto} bloqueado={guardando} />
+            <EditorMuebles posiciones={posiciones} selecciones={selecciones} seleccionar={seleccionar}
+              cambiar={cambiarObjetos} agregar={cambiarObjeto} eliminar={eliminarObjetos} bloqueado={guardando}
+              comenzarGesto={comenzarGesto} cerrarGesto={() => cerrarGesto()} />
+            <p role="status" className="mt-2 text-xs text-slate-600">{selecciones.length} {selecciones.length === 1 ? "objeto seleccionado" : "objetos seleccionados"}</p>
             {seleccion && <div role="group" aria-label={`Mover ${objetosEditables.find(objeto => objeto.clave === seleccion)?.nombre}`}
               className="mt-3 flex flex-wrap gap-2">
               {movimientos.map(({ nombre, icono: Icono, x, y }) => (

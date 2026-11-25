@@ -10,7 +10,8 @@ type Props = {
   estados: Record<string, EstadoPlano>;
   nombres?: Record<string, string>;
   seleccion: string | null;
-  onSeleccion: (clave: string) => void;
+  selecciones?: readonly string[];
+  onSeleccion: (clave: string, sumar?: boolean) => void;
   angulo: number;
   inclinacion: number;
   onGirar: (horizontal: number, vertical: number) => void;
@@ -23,12 +24,14 @@ type Props = {
   tamanoCuadricula?: number;
   medioPaso?: boolean;
   onIniciarMovimiento?: (clave: string) => void;
+  onFinalizarMovimiento?: (cancelar?: boolean) => void;
   onMover: (clave: string, dx: number, dy: number) => void;
 };
 
-export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, inclinacion, onGirar,
+export function PlanoCitt({ estados, nombres, seleccion, selecciones, onSeleccion, angulo, inclinacion, onGirar,
   zoom = 1, onZoom, ajustarAltura = false, posiciones, editar, cuadricula = false,
-  tamanoCuadricula = pasoCuadricula, medioPaso = false, onIniciarMovimiento, onMover }: Props) {
+  tamanoCuadricula = pasoCuadricula, medioPaso = false, onIniciarMovimiento, onFinalizarMovimiento, onMover }: Props) {
+  const seleccionados = new Set(selecciones ?? (seleccion ? [seleccion] : []));
   const id = useId();
   const clipPiso = `${id}-piso`;
   const sombra = `${id}-sombra`;
@@ -78,6 +81,11 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
         const clave = editar && !giroDerecho && event.target instanceof Element
           ? event.target.closest("[data-objeto-plano]")?.getAttribute("data-objeto-plano") ?? undefined : undefined;
         if (editar && !giroDerecho && !clave) return;
+        if (clave && event.shiftKey) {
+          onSeleccion(clave, true);
+          omitirClick.current = true;
+          return;
+        }
         if (clave) onIniciarMovimiento?.(clave);
         gesto.current = { id: event.pointerId, x: event.clientX, y: event.clientY,
           inicioX: event.clientX, inicioY: event.clientY, activo: false, clave };
@@ -91,7 +99,6 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
         omitirClick.current = true;
         if (!inicio.activo) {
           event.currentTarget.setPointerCapture(event.pointerId);
-          if (inicio.clave) onSeleccion(inicio.clave);
         }
         gesto.current = { ...inicio, x: event.clientX, y: event.clientY, activo: true };
         if (inicio.clave) {
@@ -105,19 +112,20 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
       onPointerUp={(event) => {
         if (editar && event.button === 2 && !gesto.current?.activo && event.target instanceof Element) {
           const clave = event.target.closest("[data-objeto-plano]")?.getAttribute("data-objeto-plano");
-          if (clave) onSeleccion(clave);
+          if (clave && !seleccionados.has(clave)) onSeleccion(clave);
         }
+        if (gesto.current?.clave) onFinalizarMovimiento?.();
         gesto.current = null;
       }}
-      onPointerCancel={() => { gesto.current = null; }}
-      onLostPointerCapture={() => { gesto.current = null; }}
+      onPointerCancel={() => { if (gesto.current?.clave) onFinalizarMovimiento?.(true); gesto.current = null; }}
+      onLostPointerCapture={() => { if (gesto.current?.clave) onFinalizarMovimiento?.(); gesto.current = null; }}
       onClickCapture={(event) => {
         if (!omitirClick.current) return;
         omitirClick.current = false;
         event.preventDefault();
         event.stopPropagation();
       }}
-      onPointerLeave={() => { if (!gesto.current?.activo) gesto.current = null; }}
+      onPointerLeave={() => { if (!gesto.current?.activo) { if (gesto.current?.clave) onFinalizarMovimiento?.(); gesto.current = null; } }}
     >
       <defs>
         <clipPath id={clipPiso}><polygon points={puntos(camara, pisoCitt)} /></clipPath>
@@ -179,7 +187,7 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
         const estado = estadosPlano[estados[zona.clave] ?? "sinDatos"];
         return <g key={zona.clave} data-objeto-plano={zona.clave} onClick={() => onSeleccion(zona.clave)}>
           <Prisma camara={zona.camara} base={zona.base} altura={2} fondo={estado.fondo} canto={estado.canto}
-            borde={zona.clave === seleccion ? "#003b73" : estado.canto} />
+            borde={seleccionados.has(zona.clave) ? "#003b73" : estado.canto} />
         </g>;
       })}
       {editar && cuadricula && <g clipPath={`url(#${clipPiso})`} data-cuadricula-plano="true"
@@ -202,27 +210,27 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
         if (!zona.marcador) return (
           <g key={zona.clave} data-objeto-plano={zona.clave}
             role={editar ? "button" : undefined} tabIndex={editar ? 0 : undefined}
-            aria-label={zona.nombre} aria-pressed={editar ? zona.clave === seleccion : undefined}
-            onClick={() => {
-              if (editar) onSeleccion(zona.clave);
+            aria-label={zona.nombre} aria-pressed={editar ? seleccionados.has(zona.clave) : undefined}
+            onClick={event => {
+              if (editar) onSeleccion(zona.clave, event.shiftKey);
               else if (zona.zonaPadre) onSeleccion(zona.zonaPadre);
             }}
             onKeyDown={editar ? (event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                onSeleccion(zona.clave);
+                onSeleccion(zona.clave, event.shiftKey);
               }
             } : undefined}>
             <title>{zona.nombre}</title>
             {zona.muebles.map((mueble, indice) => <Mueble3D key={indice} camara={camara} mueble={mueble} />)}
-            {editar && (!zona.zonaPadre || zona.clave === seleccion) &&
+            {editar && (!zona.zonaPadre || seleccionados.has(zona.clave)) &&
               <polygon points={puntos(camara, zona.base, zona.zonaPadre ? zona.muebles[0].altura + 1 : 57)}
-                pointerEvents="none" fill="none" stroke={zona.clave === seleccion ? "#003b73" : "#64748b"} strokeWidth="3" />}
+                pointerEvents="none" fill="none" stroke={seleccionados.has(zona.clave) ? "#003b73" : "#64748b"} strokeWidth="3" />}
           </g>
         );
         const estado = estadosPlano[estados[zona.clave] ?? "sinDatos"];
         const nombre = nombres?.[zona.clave] ?? zona.nombre;
-        const activo = zona.clave === seleccion;
+        const activo = seleccionados.has(zona.clave);
         const alturaMarcador = zona.alturaMarcador ?? 50;
         const [x, y] = camara.proyectar(zona.marcador, alturaMarcador);
         const [pieX, pieY] = camara.proyectar(zona.marcador, alturaMarcador - 28);
@@ -235,11 +243,11 @@ export function PlanoCitt({ estados, nombres, seleccion, onSeleccion, angulo, in
             aria-label={`${nombre}, ${estado.texto}`}
             aria-pressed={activo}
             className={`${editar ? "cursor-move" : "cursor-pointer"} outline-none focus-visible:[&>circle:last-of-type]:stroke-[#003b73] focus-visible:[&>circle:last-of-type]:stroke-[4]`}
-            onClick={() => onSeleccion(zona.clave)}
+            onClick={event => onSeleccion(zona.clave, event.shiftKey)}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                onSeleccion(zona.clave);
+                onSeleccion(zona.clave, event.shiftKey);
               }
             }}
           >

@@ -101,7 +101,7 @@ public class PlanoCittController {
         boolean extra = clave.matches("extra-[a-f0-9-]{36}");
         boolean mueble = CLAVE_MUEBLE.matcher(clave).matches() || extra;
         boolean propiedades = (posicion.color() == null || mueble && posicion.color().matches("#[a-fA-F0-9]{6}"))
-                && (posicion.tipo() == null ? !extra : extra && Set.of("mesa", "silla", "redonda").contains(posicion.tipo()))
+                && (posicion.tipo() == null ? !extra : extra && Set.of("mesa", "silla", "sillaCowork", "redonda").contains(posicion.tipo()))
                 && dimensionValida(posicion.ancho(), mueble, 400)
                 && dimensionValida(posicion.fondo(), mueble, 400)
                 && dimensionValida(posicion.altura(), mueble, 250);

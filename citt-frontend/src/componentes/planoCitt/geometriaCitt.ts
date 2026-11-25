@@ -1,7 +1,7 @@
 export type Punto = readonly [number, number];
 
 export type PosicionPlano = { x: number; y: number; giro?: number | null;
-  oculto?: boolean; tipo?: "mesa" | "silla" | "redonda"; color?: string;
+  oculto?: boolean; tipo?: "mesa" | "silla" | "sillaCowork" | "redonda"; color?: string;
   ancho?: number; fondo?: number; altura?: number };
 export type PosicionesPlano = Record<string, PosicionPlano>;
 
@@ -33,7 +33,8 @@ export type Acabado = readonly [superficie: string, frente: string, lateral: str
 export type Mueble = {
   base: Punto[];
   altura: number;
-  tipo?: "mesa" | "mesaRedonda" | "asiento" | "sillaReunion";
+  tipo?: "mesa" | "mesaRedonda" | "asiento" | "sillaReunion" | "sillaCowork";
+  haciaNorte?: boolean;
   haciaIzquierda?: boolean;
   monitor?: boolean;
   nivel?: number;
@@ -79,6 +80,10 @@ const mesa = (x: number, y: number, ancho: number, fondo: number, monitor = fals
 const asiento = (x: number, y: number, ancho = 17, fondo = 17, acabado: Acabado = azul): Mueble => ({
   base: rectangulo(x, y, ancho, fondo), altura: 14, tipo: "asiento",
   acabado, patas: "#d2d4cf",
+});
+
+const sillaCowork = (x: number, y: number, haciaNorte: boolean, acabado: Acabado = azul): Mueble => ({
+  base: rectangulo(x, y, 17, 17), altura: 38, tipo: "sillaCowork", haciaNorte, acabado,
 });
 
 const sillaReunion = (x: number, y: number, ancho: number, haciaIzquierda = false): Mueble => ({
@@ -249,8 +254,8 @@ export const mueblesEditables = [
       cm(100), cm(50),
     )))),
   ...mueblesDeZona("CW", "silla", gruposCowork.flatMap(([x, y]) => [
-    asiento(x + 13, y - 20, 17, 17, naranja), asiento(x + 89, y - 20),
-    asiento(x + 13, y + 34), asiento(x + 89, y + 34, 17, 17, naranja),
+    sillaCowork(x + 13, y - 20, true, naranja), sillaCowork(x + 89, y - 20, true),
+    sillaCowork(x + 13, y + 34, false), sillaCowork(x + 89, y + 34, false, naranja),
   ])),
 ];
 
@@ -260,9 +265,10 @@ export const objetosEditables: (ObjetoPlano & { marcador?: Punto; alturaMarcador
 
 export function objetosDelPlano(posiciones: PosicionesPlano) {
   const extras: ObjetoPlano[] = Object.entries(posiciones).filter(([clave, p]) => clave.startsWith("extra-") && p.tipo)
-    .map(([clave, p]) => ({ clave, nombre: p.tipo === "silla" ? "Silla adicional" : p.tipo === "redonda" ? "Mesa redonda" : "Mesa adicional",
-      base: rectangulo(360, 220, 40, 30), muebles: [{ ...mesa(360, 220, 40, 30),
-        tipo: p.tipo === "silla" ? "asiento" : p.tipo === "redonda" ? "mesaRedonda" : "mesa" }] }));
+    .map(([clave, p]) => ({ clave, nombre: p.tipo === "sillaCowork" ? "Silla cowork adicional" : p.tipo === "silla" ? "Silla adicional" : p.tipo === "redonda" ? "Mesa redonda" : "Mesa adicional",
+      base: rectangulo(p.tipo === "sillaCowork" ? 500 : 360, p.tipo === "sillaCowork" ? 250 : 220, 40, 30),
+      muebles: [{ ...mesa(p.tipo === "sillaCowork" ? 500 : 360, p.tipo === "sillaCowork" ? 250 : 220, 40, 30),
+        tipo: p.tipo === "sillaCowork" ? "sillaCowork" : p.tipo === "silla" ? "asiento" : p.tipo === "redonda" ? "mesaRedonda" : "mesa" }] }));
   const todos: typeof objetosEditables = [...objetosEditables, ...extras];
   return todos.map(objeto => {
     const p = posiciones[objeto.clave];

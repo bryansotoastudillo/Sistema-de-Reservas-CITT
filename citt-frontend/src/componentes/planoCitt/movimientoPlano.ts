@@ -43,3 +43,64 @@ export function moverObjetoPlano(actual: PosicionesPlano, clave: string, dx: num
   if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9 && giro === (anterior.giro ?? 0)) return actual;
   return { ...actual, [clave]: { ...anterior, x: anterior.x + x, y: anterior.y + y, giro } };
 }
+
+/** Excluye hijos de zonas ya seleccionadas para no aplicar dos veces el movimiento. */
+export function raicesSeleccion(actual: PosicionesPlano, claves: readonly string[]) {
+  const objetos = objetosDelPlano(actual);
+  return objetos.filter(o => claves.includes(o.clave) && (!o.zonaPadre || !claves.includes(o.zonaPadre)));
+}
+
+export function moverObjetosPlano(actual: PosicionesPlano, claves: readonly string[], dx: number, dy: number,
+  grados = 0, paso = 0): PosicionesPlano {
+  const raices = raicesSeleccion(actual, claves);
+  if (!raices.length) return actual;
+  if (raices.length === 1) return moverObjetoPlano(actual, raices[0].clave, dx, dy, grados, paso);
+  const todos = objetosDelPlano(actual);
+  const puntos = (posiciones: PosicionesPlano) => raices.flatMap(o => {
+    const miembros = [o, ...todos.filter(h => h.zonaPadre === o.clave && !posiciones[h.clave]?.oculto)];
+    return miembros.flatMap(m => [...m.base, ...m.muebles.flatMap(p => p.base)].map(transformarEnPlano(m, posiciones)));
+  });
+  const centros = raices.map(o => transformarEnPlano(o, actual)([
+    o.base.reduce((s, p) => s + p[0], 0) / o.base.length, o.base.reduce((s, p) => s + p[1], 0) / o.base.length,
+  ]));
+  const centro: Punto = [centros.reduce((s, p) => s + p[0], 0) / centros.length,
+    centros.reduce((s, p) => s + p[1], 0) / centros.length];
+  const siguientes = { ...actual };
+  for (const o of raices) {
+    const local: Punto = [o.base.reduce((s, p) => s + p[0], 0) / o.base.length, o.base.reduce((s, p) => s + p[1], 0) / o.base.length];
+    const c = transformarEnPlano(o, actual)(local);
+    const rotado = girarDesplazamiento([c[0] - centro[0], c[1] - centro[1]], grados);
+    const desplazamiento = girarDesplazamiento([centro[0] + rotado[0] - c[0], centro[1] + rotado[1] - c[1]],
+      -(o.zonaPadre ? actual[o.zonaPadre]?.giro ?? 0 : 0));
+    const p = actual[o.clave] ?? { x: 0, y: 0 };
+    siguientes[o.clave] = { ...p, x: p.x + desplazamiento[0], y: p.y + desplazamiento[1], giro: ((p.giro ?? 0) + grados + 360) % 360 };
+  }
+  const girados = puntos(siguientes);
+  const minX = -Math.min(...girados.map(p => p[0])), maxX = 767 - Math.max(...girados.map(p => p[0]));
+  const minY = -Math.min(...girados.map(p => p[1])), maxY = 484 - Math.max(...girados.map(p => p[1]));
+  if (minX > maxX || minY > maxY) return actual;
+  // Una rotación que exigiría separar o desplazar el grupo se rechaza completa.
+  if (grados && (minX > 1e-8 || maxX < -1e-8 || minY > 1e-8 || maxY < -1e-8)) return actual;
+  if (paso > 0) {
+    const ancla = raices.at(-1)!;
+    const c = transformarEnPlano(ancla, siguientes)([
+      ancla.base.reduce((s, p) => s + p[0], 0) / ancla.base.length,
+      ancla.base.reduce((s, p) => s + p[1], 0) / ancla.base.length,
+    ]);
+    const ajustar = (v: number, d: number, min: number, max: number) => {
+      const primero = Math.ceil((v + min) / paso - 1e-9), ultimo = Math.floor((v + max) / paso + 1e-9);
+      return primero > ultimo ? null : Math.min(ultimo, Math.max(primero, Math.round((v + d) / paso))) * paso - v;
+    };
+    const x = ajustar(c[0], dx, minX, maxX), y = ajustar(c[1], dy, minY, maxY);
+    if (x === null || y === null) return actual;
+    dx = x; dy = y;
+  } else {
+    dx = Math.min(maxX, Math.max(minX, dx)); dy = Math.min(maxY, Math.max(minY, dy));
+  }
+  for (const o of raices) {
+    const p = siguientes[o.clave];
+    const [x, y] = girarDesplazamiento([dx, dy], -(o.zonaPadre ? actual[o.zonaPadre]?.giro ?? 0 : 0));
+    siguientes[o.clave] = { ...p, x: p.x + x, y: p.y + y };
+  }
+  return siguientes;
+}
